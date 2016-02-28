@@ -2,13 +2,13 @@
 {
     public struct EntityInfo
     {
-        public int Start { get; }
+        public int StartIndex { get; }
         public int Length { get; }
         public EntityType Type { get; }
 
-        public EntityInfo(int start, int length, EntityType type)
+        public EntityInfo(int startIndex, int length, EntityType type)
         {
-            this.Start = start;
+            this.StartIndex = startIndex;
             this.Length = length;
             this.Type = type;
         }

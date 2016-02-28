@@ -41,7 +41,7 @@ namespace ToriatamaText.InternalExtractors
             Start:
             if (startIndex >= text.Length - 1) return;
 
-            var atIndex = text.IndexOfAny(AtSigns);
+            var atIndex = text.IndexOfAny(AtSigns, startIndex);
             if (atIndex == -1 || atIndex == text.Length - 1) return;
 
             // @ の連続を処理
@@ -73,7 +73,7 @@ namespace ToriatamaText.InternalExtractors
             if (!IsPrecedingChar(text, atIndex - 1))
                 goto GoToNextIndex;
 
-            atIndex = nextIndex - 1;
+            atIndex = nextIndex - 2;
 
             // 残り 19 文字
             {

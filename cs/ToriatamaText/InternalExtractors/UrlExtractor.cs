@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace ToriatamaText.InternalExtractors
 {
@@ -150,7 +149,7 @@ namespace ToriatamaText.InternalExtractors
             return lastEndingCharIndex == -1 ? 0 : lastEndingCharIndex - startIndex + 1;
         }
 
-        public static void Extract(string text, Dictionary<int, TldInfo> tldDic, int longestTldLength, int shortestTldLength, List<EntityInfo> result)
+        public static void Extract(string text, bool urlWithoutProtocol, Dictionary<int, TldInfo> tldDic, int longestTldLength, int shortestTldLength, List<EntityInfo> result)
         {
             var dots = new MiniList<int>();
             var hashCodes = new MiniList<int>();
@@ -238,7 +237,10 @@ namespace ToriatamaText.InternalExtractors
                     lastUnicodeCharIndex = i;
             }
 
-            if (!hasScheme && lastUnicodeCharIndex != -1)
+            if (!urlWithoutProtocol)
+                goto GoToNextToDot;
+
+            if (lastUnicodeCharIndex != -1)
             {
                 if (lastUnicodeCharIndex != dotIndex - 1 && IsPrecedingChar(text[lastUnicodeCharIndex]))
                 {

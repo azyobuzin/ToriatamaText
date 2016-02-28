@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using ToriatamaText.InternalExtractors;
 
 namespace ToriatamaText
@@ -12,7 +10,7 @@ namespace ToriatamaText
         private int _longestTldLength;
         private int _shortestTldLength = int.MaxValue;
 
-        public bool ExtractsUrlWithoutProtocol { get; set; }
+        public bool ExtractsUrlWithoutProtocol { get; set; } = true;
 
         public Extractor(IEnumerable<string> gTlds, IEnumerable<string> ccTlds)
         {
@@ -76,7 +74,7 @@ namespace ToriatamaText
         {
             var result = new List<EntityInfo>();
             if (!string.IsNullOrEmpty(text))
-                UrlExtractor.Extract(text, this._tldDictionary, this._longestTldLength, this._shortestTldLength, result);
+                UrlExtractor.Extract(text, this.ExtractsUrlWithoutProtocol, this._tldDictionary, this._longestTldLength, this._shortestTldLength, result);
             return result;
         }
 

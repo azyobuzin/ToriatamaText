@@ -3,9 +3,12 @@ Copyright 2014 Twitter, Inc and other contributors
 
 Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
-Azyobuzi.TwitterUrlExtractorはtwitter-textのソースコードの一部とTLDリストを使用しています。
+ToriatamaText は twitter-text と同様の動作を目指しているため、 twitter-text より以下のものを使用しています
 
-# Azyobuzi.TwitterUrlExtractor
+* 正規表現の一部
+* TLD リスト
+
+# ToriatamaText
 The MIT License (MIT)
 
 Copyright (c) 2016 azyobuzin
