@@ -14,6 +14,7 @@ namespace ToriatamaText.Test
         public TestItem<string[]>[] Mentions { get; set; }
         public TestItem<MentionsWithIndicesExpected[]>[] MentionsWithIndices { get; set; }
         public TestItem<MentionsOrListsWithIndicesExpected[]>[] MentionsOrListsWithIndices { get; set; }
+        public TestItem<string>[] Replies { get; set; }
         public TestItem<string[]>[] Urls { get; set; }
         public TestItem<UrlsWithIndicesExpected[]>[] UrlsWithIndices { get; set; }
     }

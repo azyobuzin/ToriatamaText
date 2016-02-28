@@ -65,9 +65,10 @@ namespace ToriatamaText
             return result;
         }
 
-        public EntityInfo? ExtractReplyScreenName(string text)
+        public string ExtractReplyScreenName(string text)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrEmpty(text)) return null;
+            return ReplyExtractor.Extract(text);
         }
 
         public List<EntityInfo> ExtractUrls(string text)

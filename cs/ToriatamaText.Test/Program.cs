@@ -74,6 +74,20 @@ namespace ToriatamaText.Test
 
             Console.WriteLine();
             Console.WriteLine("=========================");
+            Console.WriteLine("Replies");
+            Console.WriteLine("=========================");
+            foreach (var test in tests.Replies)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractReplyScreenName(test.Text);
+                if (result != test.Expected)
+                {
+                    Debugger.Break();
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("=========================");
             Console.WriteLine("Urls");
             Console.WriteLine("=========================");
             foreach (var test in tests.Urls)

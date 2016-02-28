@@ -52,23 +52,17 @@ namespace ToriatamaText.InternalExtractors
                 var c = text[nextIndex++];
                 if (c < AsciiTableLength)
                 {
-                    switch (AsciiTable[c] & (CharType.AlnumAt | CharType.ScreenNameSymbol))
-                    {
-                        case 0:
-                            if (c == '＠')
-                                goto case CharType.At;
-                            break;
-                        case CharType.At:
-                            continue;
-                        default:
-                            goto EatenFirstChar;
-                    }
+                    if ((AsciiTable[c] & (CharType.Alnum | CharType.ScreenNameSymbol)) != 0)
+                        break;
+                    if (c != '@')
+                        goto GoToNextIndex;
                 }
-
-                goto GoToNextIndex;
+                else if (c != '＠')
+                {
+                    goto GoToNextIndex;
+                }
             }
 
-            EatenFirstChar:
             // 1文字前をチェック
             if (!IsPrecedingChar(text, atIndex - 1))
                 goto GoToNextIndex;
