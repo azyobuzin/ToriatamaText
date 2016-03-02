@@ -17,6 +17,10 @@ namespace ToriatamaText.Test
         public TestItem<string>[] Replies { get; set; }
         public TestItem<string[]>[] Urls { get; set; }
         public TestItem<UrlsWithIndicesExpected[]>[] UrlsWithIndices { get; set; }
+        public TestItem<string[]>[] Hashtags { get; set; }
+        public TestItem<HashtagsWithIndicesExpected[]>[] HashtagsWithIndices { get; set; }
+        public TestItem<string[]>[] Cashtags { get; set; }
+        public TestItem<CashtagsWithIndicesExpected[]>[] CashtagsWithIndices { get; set; }
     }
 
     class TestItem<TExpected>
@@ -39,6 +43,20 @@ namespace ToriatamaText.Test
         }
     }
 
+    class MentionsOrListsWithIndicesExpected
+    {
+        public string ScreenName { get; set; }
+        public string ListSlug { get; set; }
+        public int[] Indices { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            var x = obj as MentionsOrListsWithIndicesExpected;
+            if (x == null) return false;
+            return this.ScreenName == x.ScreenName && this.ListSlug == x.ListSlug && this.Indices.SequenceEqual(x.Indices);
+        }
+    }
+
     class UrlsWithIndicesExpected
     {
         public string Url { get; set; }
@@ -52,17 +70,29 @@ namespace ToriatamaText.Test
         }
     }
 
-    class MentionsOrListsWithIndicesExpected
+    class HashtagsWithIndicesExpected
     {
-        public string ScreenName { get; set; }
-        public string ListSlug { get; set; }
+        public string Hashtag { get; set; }
         public int[] Indices { get; set; }
 
         public override bool Equals(object obj)
         {
-            var x = obj as MentionsOrListsWithIndicesExpected;
+            var x = obj as HashtagsWithIndicesExpected;
             if (x == null) return false;
-            return this.ScreenName == x.ScreenName && this.ListSlug == x.ListSlug && this.Indices.SequenceEqual(x.Indices);
+            return this.Hashtag == x.Hashtag && this.Indices.SequenceEqual(x.Indices);
+        }
+    }
+
+    class CashtagsWithIndicesExpected
+    {
+        public string Cashtag { get; set; }
+        public int[] Indices { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            var x = obj as CashtagsWithIndicesExpected;
+            if (x == null) return false;
+            return this.Cashtag == x.Cashtag && this.Indices.SequenceEqual(x.Indices);
         }
     }
 }

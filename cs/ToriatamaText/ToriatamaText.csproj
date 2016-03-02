@@ -41,6 +41,7 @@
     <Compile Include="EntityInfo.cs" />
     <Compile Include="EntityType.cs" />
     <Compile Include="Extractor.cs" />
+    <Compile Include="InternalExtractors\HashtagExtractor.cs" />
     <Compile Include="InternalExtractors\MentionExtractor.cs" />
     <Compile Include="InternalExtractors\MiniList.cs" />
     <Compile Include="InternalExtractors\ReplyExtractor.cs" />

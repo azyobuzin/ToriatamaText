@@ -121,6 +121,40 @@ namespace ToriatamaText.Test
             }
 
             Console.WriteLine();
+            Console.WriteLine("=========================");
+            Console.WriteLine("Hashtags");
+            Console.WriteLine("=========================");
+            foreach (var test in tests.Hashtags)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractHashtags(test.Text, true)
+                    .ConvertAll(x => test.Text.Substring(x.StartIndex + 1, x.Length - 1));
+                if (!result.SequenceEqual(test.Expected))
+                {
+                    Debugger.Break();
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("=========================");
+            Console.WriteLine("HashtagsWithIndices");
+            Console.WriteLine("=========================");
+            foreach (var test in tests.HashtagsWithIndices)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractHashtags(test.Text, true)
+                    .ConvertAll(x => new HashtagsWithIndicesExpected
+                    {
+                        Hashtag = test.Text.Substring(x.StartIndex + 1, x.Length - 1),
+                        Indices = new[] { x.StartIndex, x.StartIndex + x.Length }
+                    });
+                if (!result.SequenceEqual(test.Expected))
+                {
+                    Debugger.Break();
+                }
+            }
+
+            Console.WriteLine();
             Console.WriteLine("End");
             Console.ReadLine();
         }

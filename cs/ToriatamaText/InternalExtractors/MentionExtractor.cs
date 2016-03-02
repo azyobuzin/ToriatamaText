@@ -138,10 +138,17 @@ namespace ToriatamaText.InternalExtractors
                             goto GoToNextIndex;
                         }
 
-                        if (c == '@' || (c == ':' && nextIndex + 1 < text.Length && text[nextIndex] == '/' && text[nextIndex + 1] == '/'))
+                        if (c == '@')
                             goto GoToNextIndex;
+
+                        if (c == ':' && nextIndex + 1 < text.Length && text[nextIndex] == '/' && text[nextIndex + 1] == '/')
+                        {
+                            startIndex = nextIndex + 2;
+                            goto Start;
+                        }
                     }
-                    else {
+                    else
+                    {
                         if (c == '＠' || IsAccentChar(c))
                             goto GoToNextIndex;
                     }

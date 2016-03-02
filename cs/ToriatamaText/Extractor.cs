@@ -79,14 +79,49 @@ namespace ToriatamaText
             return result;
         }
 
-        public List<EntityInfo> ExtractHashtags(string text)
+        public List<EntityInfo> ExtractHashtags(string text, bool checkUrlOverlap)
         {
-            throw new NotImplementedException();
+            var result = new List<EntityInfo>();
+            if (!string.IsNullOrEmpty(text))
+            {
+                HashtagExtractor.Extract(text, result);
+
+                if (checkUrlOverlap && result.Count > 0)
+                {
+                    UrlExtractor.Extract(text, this.ExtractsUrlWithoutProtocol, this._tldDictionary, this._longestTldLength, this._shortestTldLength, result);
+                    RemoveOverlappingEntities(result);
+                    result.RemoveAll(x => x.Type != EntityType.Hashtag);
+                }
+            }
+            return result;
         }
 
         public List<EntityInfo> ExtractCashtags(string text)
         {
             throw new NotImplementedException();
+        }
+
+        private static void RemoveOverlappingEntities(List<EntityInfo> entities)
+        {
+            if (entities.Count <= 1) return;
+
+            entities.Sort((x, y) => x.StartIndex - y.StartIndex);
+
+            var prevEnd = entities[0].StartIndex + entities[0].Length;
+            var i = 1;
+            while (i < entities.Count)
+            {
+                var current = entities[i];
+                if (prevEnd > current.StartIndex)
+                {
+                    entities.RemoveAt(i); // これ遅そう
+                }
+                else
+                {
+                    prevEnd = current.StartIndex + current.Length;
+                    i++;
+                }
+            }
         }
     }
 }

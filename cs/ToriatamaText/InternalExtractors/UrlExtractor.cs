@@ -56,18 +56,20 @@ namespace ToriatamaText.InternalExtractors
                 var c = text[i];
                 if (c < AsciiTableLength)
                 {
-                    switch (AsciiTable[c] & (CharType.Alnum | CharType.PathEndingSymbol | CharType.PathSymbol | CharType.LParen))
+                    switch (AsciiTable[c] & (CharType.Alnum | CharType.PathEndingSymbol | CharType.PathSymbol))
                     {
                         case 0:
+                            if (c == '(')
+                            {
+                                lastLengthInParen = EatPathInParen(text, i + 1);
+                                if (lastLengthInParen == 0)
+                                    goto BreakLoop;
+                                lastParenStartIndex = i;
+                                i += lastLengthInParen;
+                                break;
+                            }
                             goto BreakLoop;
                         case CharType.PathSymbol:
-                            break;
-                        case CharType.LParen:
-                            lastLengthInParen = EatPathInParen(text, i + 1);
-                            if (lastLengthInParen == 0)
-                                goto BreakLoop;
-                            lastParenStartIndex = i;
-                            i += lastLengthInParen;
                             break;
                         default:
                             lastEndingCharIndex = i;
@@ -101,27 +103,31 @@ namespace ToriatamaText.InternalExtractors
                 var c = text[i];
                 if (c < AsciiTableLength)
                 {
-                    switch (AsciiTable[c] & (CharType.Alnum | CharType.PathEndingSymbol | CharType.PathSymbol | CharType.LParen | CharType.RParen))
+                    if ((AsciiTable[c] & (CharType.Alnum | CharType.PathEndingSymbol | CharType.PathSymbol)) == 0)
                     {
-                        case 0:
-                            goto BreakLoop;
-                        case CharType.LParen:
+                        if (c == '(')
+                        {
                             var lengthInParen = EatPathInParen(text, i + 1);
                             if (lengthInParen == 0)
-                                goto BreakLoop;
+                                break;
                             i += lengthInParen;
-                            break;
-                        case CharType.RParen:
+                        }
+                        else if (c == ')')
+                        {
                             return i - startIndex + 1;
+                        }
+                        else
+                        {
+                            break;
+                        }
                     }
                 }
                 else if (!IsCyrillicScript(c) && !IsAccentChar(c))
                 {
-                    goto BreakLoop;
+                    break;
                 }
             }
 
-            BreakLoop:
             return 0;
         }
 

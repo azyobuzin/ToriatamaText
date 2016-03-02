@@ -47,12 +47,10 @@ namespace ToriatamaText.InternalExtractors
             PathSymbol = 1 << 5,
             QueryEndingSymbol = 1 << 6,
             QuerySymbol = 1 << 7,
-            LParen = 1 << 8,
-            RParen = 1 << 9,
-            DomainSymbol = 1 << 10,
-            MentionNotPrecedingSymbol = 1 << 11,
-            ScreenNameSymbol = 1 << 12,
-            ListSlugSymbol = 1 << 13
+            DomainSymbol = 1 << 8,
+            MentionNotPrecedingSymbol = 1 << 9,
+            ScreenNameSymbol = 1 << 10,
+            ListSlugSymbol = 1 << 11
         }
 
         public static readonly CharType[] AsciiTable =
@@ -97,8 +95,8 @@ namespace ToriatamaText.InternalExtractors
             CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol, // %
             CharType.PathSymbol | CharType.QueryEndingSymbol | CharType.MentionNotPrecedingSymbol, // &
             CharType.PathSymbol | CharType.QuerySymbol, // '
-            CharType.QuerySymbol | CharType.LParen, // (
-            CharType.QuerySymbol | CharType.RParen, // )
+            CharType.QuerySymbol, // (
+            CharType.QuerySymbol, // )
             CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol, // *
             CharType.PathEndingSymbol | CharType.QuerySymbol, // +
             CharType.PathSymbol | CharType.QuerySymbol, // ,
