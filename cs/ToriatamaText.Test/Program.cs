@@ -155,6 +155,40 @@ namespace ToriatamaText.Test
             }
 
             Console.WriteLine();
+            Console.WriteLine("=========================");
+            Console.WriteLine("Cashtags");
+            Console.WriteLine("=========================");
+            foreach (var test in tests.Cashtags)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractCashtags(test.Text)
+                    .ConvertAll(x => test.Text.Substring(x.StartIndex + 1, x.Length - 1));
+                if (!result.SequenceEqual(test.Expected))
+                {
+                    Debugger.Break();
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("=========================");
+            Console.WriteLine("CashtagsWithIndices");
+            Console.WriteLine("=========================");
+            foreach (var test in tests.CashtagsWithIndices)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractCashtags(test.Text)
+                    .ConvertAll(x => new CashtagsWithIndicesExpected
+                    {
+                        Cashtag = test.Text.Substring(x.StartIndex + 1, x.Length - 1),
+                        Indices = new[] { x.StartIndex, x.StartIndex + x.Length }
+                    });
+                if (!result.SequenceEqual(test.Expected))
+                {
+                    Debugger.Break();
+                }
+            }
+
+            Console.WriteLine();
             Console.WriteLine("End");
             Console.ReadLine();
         }

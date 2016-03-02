@@ -29,11 +29,6 @@ namespace ToriatamaText.InternalExtractors
             return true;
         }
 
-        private static bool IsAlphabet(char c)
-        {
-            return c <= 'z' && c >= 'A' && (c >= 'a' || c <= 'Z');
-        }
-
         public static void Extract(string text, bool includeList, List<EntityInfo> result)
         {
             var startIndex = 0;

@@ -33,6 +33,18 @@ namespace ToriatamaText.InternalExtractors
                 || (c >= '\u1e00' && c <= '\u1eff');
         }
 
+        public static bool IsAlphabet(char c)
+        {
+            return c <= 'z' && c >= 'A' && (c >= 'a' || c <= 'Z');
+        }
+
+        public static bool IsUnicodeSpace(char c)
+        {
+            return (c >= '\u0009' && c <= '\u000d') || c == '\u0020' || c == '\u0085' || c == '\u00a0' || c == '\u1680'
+                || c == '\u180E' || (c >= '\u2000' && c <= '\u200a') || c == '\u2028' || c == '\u2029'
+                || c == '\u202F' || c == '\u205F' || c == '\u3000';
+        }
+
         [Flags]
         public enum CharType
         {
@@ -50,7 +62,8 @@ namespace ToriatamaText.InternalExtractors
             DomainSymbol = 1 << 8,
             MentionNotPrecedingSymbol = 1 << 9,
             ScreenNameSymbol = 1 << 10,
-            ListSlugSymbol = 1 << 11
+            ListSlugSymbol = 1 << 11,
+            SymbolAfterCashtag = 1 << 12
         }
 
         public static readonly CharType[] AsciiTable =
@@ -64,11 +77,11 @@ namespace ToriatamaText.InternalExtractors
             CharType.None, // ACK
             CharType.None, // BEL
             CharType.None, // BS
-            CharType.None, // HT
-            CharType.None, // LF
-            CharType.None, // VT
-            CharType.None, // FF
-            CharType.None, // CR
+            CharType.SymbolAfterCashtag, // HT
+            CharType.SymbolAfterCashtag, // LF
+            CharType.SymbolAfterCashtag, // VT
+            CharType.SymbolAfterCashtag, // FF
+            CharType.SymbolAfterCashtag, // CR
             CharType.None, // SO
             CharType.None, // SI
             CharType.None, // DLE
@@ -87,22 +100,22 @@ namespace ToriatamaText.InternalExtractors
             CharType.None, // GS
             CharType.None, // RS
             CharType.None, // US
-            CharType.None, // Space
-            CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol, // !
-            CharType.None, // "
-            CharType.UrlNotPrecedingSymbol | CharType.PathEndingSymbol | CharType.QueryEndingSymbol | CharType.MentionNotPrecedingSymbol, // #
-            CharType.UrlNotPrecedingSymbol | CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol, // $
-            CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol, // %
-            CharType.PathSymbol | CharType.QueryEndingSymbol | CharType.MentionNotPrecedingSymbol, // &
-            CharType.PathSymbol | CharType.QuerySymbol, // '
-            CharType.QuerySymbol, // (
-            CharType.QuerySymbol, // )
-            CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol, // *
-            CharType.PathEndingSymbol | CharType.QuerySymbol, // +
-            CharType.PathSymbol | CharType.QuerySymbol, // ,
-            CharType.PathEndingSymbol | CharType.QuerySymbol | CharType.DomainSymbol | CharType.ListSlugSymbol, // -
-            CharType.PathSymbol | CharType.QuerySymbol, // .
-            CharType.PathEndingSymbol | CharType.QueryEndingSymbol, // /
+            CharType.SymbolAfterCashtag, // Space
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol | CharType.SymbolAfterCashtag, // !
+            CharType.SymbolAfterCashtag, // "
+            CharType.UrlNotPrecedingSymbol | CharType.PathEndingSymbol | CharType.QueryEndingSymbol | CharType.MentionNotPrecedingSymbol | CharType.SymbolAfterCashtag, // #
+            CharType.UrlNotPrecedingSymbol | CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol | CharType.SymbolAfterCashtag, // $
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol | CharType.SymbolAfterCashtag, // %
+            CharType.PathSymbol | CharType.QueryEndingSymbol | CharType.MentionNotPrecedingSymbol | CharType.SymbolAfterCashtag, // &
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // '
+            CharType.QuerySymbol | CharType.SymbolAfterCashtag, // (
+            CharType.QuerySymbol | CharType.SymbolAfterCashtag, // )
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.MentionNotPrecedingSymbol | CharType.SymbolAfterCashtag, // *
+            CharType.PathEndingSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // +
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // ,
+            CharType.PathEndingSymbol | CharType.QuerySymbol | CharType.DomainSymbol | CharType.ListSlugSymbol | CharType.SymbolAfterCashtag, // -
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // .
+            CharType.PathEndingSymbol | CharType.QueryEndingSymbol | CharType.SymbolAfterCashtag, // /
             CharType.Number, // 0
             CharType.Number, // 1
             CharType.Number, // 2
@@ -113,13 +126,13 @@ namespace ToriatamaText.InternalExtractors
             CharType.Number, // 7
             CharType.Number, // 8
             CharType.Number, // 9
-            CharType.PathSymbol | CharType.QuerySymbol, // :
-            CharType.PathSymbol | CharType.QuerySymbol, // ;
-            CharType.None, // <
-            CharType.PathEndingSymbol | CharType.QueryEndingSymbol, // =
-            CharType.None, // >
-            CharType.QuerySymbol, // ?
-            CharType.At | CharType.UrlNotPrecedingSymbol | CharType.PathSymbol | CharType.QuerySymbol, // @
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // :
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // ;
+            CharType.SymbolAfterCashtag, // <
+            CharType.PathEndingSymbol | CharType.QueryEndingSymbol | CharType.SymbolAfterCashtag, // =
+            CharType.SymbolAfterCashtag, // >
+            CharType.QuerySymbol | CharType.SymbolAfterCashtag, // ?
+            CharType.At | CharType.UrlNotPrecedingSymbol | CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // @
             CharType.Alphabet, // A
             CharType.Alphabet, // B
             CharType.Alphabet, // C
@@ -146,12 +159,12 @@ namespace ToriatamaText.InternalExtractors
             CharType.Alphabet, // X
             CharType.Alphabet, // Y
             CharType.Alphabet, // Z
-            CharType.PathSymbol | CharType.QuerySymbol, // [
-            CharType.None, // \
-            CharType.PathSymbol | CharType.QuerySymbol, // ]
-            CharType.None, // ^
-            CharType.PathEndingSymbol | CharType.QueryEndingSymbol | CharType.DomainSymbol | CharType.MentionNotPrecedingSymbol | CharType.ScreenNameSymbol | CharType.ListSlugSymbol, // _
-            CharType.None, // `
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // [
+            CharType.SymbolAfterCashtag, // \
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // ]
+            CharType.SymbolAfterCashtag | CharType.SymbolAfterCashtag, // ^
+            CharType.PathEndingSymbol | CharType.QueryEndingSymbol | CharType.DomainSymbol | CharType.MentionNotPrecedingSymbol | CharType.ScreenNameSymbol | CharType.ListSlugSymbol | CharType.SymbolAfterCashtag, // _
+            CharType.SymbolAfterCashtag, // `
             CharType.Alphabet, // a
             CharType.Alphabet, // b
             CharType.Alphabet, // c
@@ -178,10 +191,10 @@ namespace ToriatamaText.InternalExtractors
             CharType.Alphabet, // x
             CharType.Alphabet, // y
             CharType.Alphabet, // z
-            CharType.None, // {
-            CharType.PathSymbol | CharType.QuerySymbol, // |
-            CharType.None, // }
-            CharType.PathSymbol | CharType.QuerySymbol, // ~
+            CharType.SymbolAfterCashtag, // {
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // |
+            CharType.SymbolAfterCashtag, // }
+            CharType.PathSymbol | CharType.QuerySymbol | CharType.SymbolAfterCashtag, // ~
             CharType.None // DEL
         };
 

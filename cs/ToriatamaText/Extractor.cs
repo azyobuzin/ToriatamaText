@@ -46,7 +46,16 @@ namespace ToriatamaText
 
         public List<EntityInfo> ExtractEntities(string text)
         {
-            throw new NotImplementedException();
+            var result = new List<EntityInfo>();
+            if (!string.IsNullOrEmpty(text))
+            {
+                UrlExtractor.Extract(text, this.ExtractsUrlWithoutProtocol, this._tldDictionary, this._longestTldLength, this._shortestTldLength, result);
+                HashtagExtractor.Extract(text, result);
+                MentionExtractor.Extract(text, true, result);
+                CashtagExtractor.Extract(text, result);
+                RemoveOverlappingEntities(result);
+            }
+            return result;
         }
 
         public List<EntityInfo> ExtractMentionedScreenNames(string text)
@@ -98,7 +107,10 @@ namespace ToriatamaText
 
         public List<EntityInfo> ExtractCashtags(string text)
         {
-            throw new NotImplementedException();
+            var result = new List<EntityInfo>();
+            if (!string.IsNullOrEmpty(text))
+                CashtagExtractor.Extract(text, result);
+            return result;
         }
 
         private static void RemoveOverlappingEntities(List<EntityInfo> entities)
