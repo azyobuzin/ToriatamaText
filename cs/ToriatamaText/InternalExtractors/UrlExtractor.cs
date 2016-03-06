@@ -266,7 +266,7 @@ namespace ToriatamaText.InternalExtractors
 
             BreakSchemeCheck:
             // ホスト部分を最後まで読み取る
-            dots.Initialize();
+            dots.Clear();
             dots.Add(dotIndex + 1);
             var hasUnicodeCharAfterDot = false;
             var nextIndex = text.Length;
@@ -324,7 +324,7 @@ namespace ToriatamaText.InternalExtractors
                 nextIndex = dotIndexPlusOne + len;
 
                 // ループ回数軽減のため、その場でハッシュ値を求める
-                hashCodes.Initialize();
+                hashCodes.Clear();
                 var hash1 = 5381;
                 var hash2 = hash1;
 

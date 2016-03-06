@@ -35,9 +35,10 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- A reference to the entire .NET Framework is automatically included -->
+    <None Include="GenerateCode.csx" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DefaultTlds.cs" />
+    <Compile Include="DefaultTlds.g.cs" />
     <Compile Include="EntityInfo.cs" />
     <Compile Include="EntityType.cs" />
     <Compile Include="Extractor.cs" />
@@ -50,7 +51,13 @@
     <Compile Include="InternalExtractors\UrlExtractor.cs" />
     <Compile Include="InternalExtractors\Utils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="UnicodeNormalization\Utils.cs" />
+    <Compile Include="UnicodeNormalization\Nfc.cs" />
+    <Compile Include="UnicodeNormalization\Nfd.cs" />
+    <Compile Include="UnicodeNormalization\Tables.g.cs" />
+    <Compile Include="Validator.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

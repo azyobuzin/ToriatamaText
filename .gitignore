@@ -215,3 +215,4 @@ ModelManifest.xml
 /java/out
 workspace.xml
 tasks.xml
+*.g.cs

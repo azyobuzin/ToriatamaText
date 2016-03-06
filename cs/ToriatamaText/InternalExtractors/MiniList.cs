@@ -6,18 +6,33 @@ namespace ToriatamaText.InternalExtractors
     {
         private T[] _array;
 
-        public int Count { get; private set; }
+        public int Count { get; set; }
 
-        public void Initialize()
+        public void Clear()
         {
-            if (this._array == null)
-                this._array = new T[4];
             this.Count = 0;
+        }
+
+        public void SetCapacity(int capacity)
+        {
+            if (this._array == null || this._array.Length < capacity)
+            {
+                var newArray = new T[capacity];
+
+                if (this.Count > 0)
+                    Array.Copy(this._array, newArray, this.Count);
+
+                this._array = newArray;
+            }
         }
 
         public void Add(T value)
         {
-            if (this._array.Length == this.Count)
+            if (this._array == null)
+            {
+                this._array = new T[4];
+            }
+            else if (this._array.Length == this.Count)
             {
                 var newArray = new T[this.Count * 2];
                 Array.Copy(this._array, newArray, this.Count);
@@ -27,7 +42,17 @@ namespace ToriatamaText.InternalExtractors
             this._array[this.Count++] = value;
         }
 
-        public T this[int index] => this._array[index];
+        public T this[int index]
+        {
+            get
+            {
+                return this._array[index];
+            }
+            set
+            {
+                this._array[index] = value;
+            }
+        }
 
         public T Last => this._array[this.Count - 1];
     }

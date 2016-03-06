@@ -6,10 +6,10 @@ namespace ToriatamaText.Test
 {
     class ExtractYaml
     {
-        public ExtractorTests Tests { get; set; }
+        public ExtractTests Tests { get; set; }
     }
 
-    class ExtractorTests
+    class ExtractTests
     {
         public TestItem<string[]>[] Mentions { get; set; }
         public TestItem<MentionsWithIndicesExpected[]>[] MentionsWithIndices { get; set; }

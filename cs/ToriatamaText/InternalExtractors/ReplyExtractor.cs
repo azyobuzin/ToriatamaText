@@ -55,7 +55,8 @@
                     if (c == '@' || (c == ':' && nextIndex + 1 < text.Length && text[nextIndex] == '/' && text[nextIndex + 1] == '/'))
                         return null;
                 }
-                else {
+                else
+                {
                     if (c == '＠' || IsAccentChar(c))
                         return null;
                 }
