@@ -68,27 +68,17 @@ namespace ToriatamaText.UnicodeNormalization
                 // ハングルここまで
 
                 var ccc = GetCanonicalCombiningClass(c);
-                if (ccc != 0 && lastCcc >= ccc)
+                if (ccc != 0 && lastCcc == ccc)
                 {
-                    // ブロックされているので次のスターターまで飛ぶ
-                    for (; i < list.Count; i++)
-                    {
-                        last = list[i];
-                        list[insertIndex++] = last;
-                        if (GetCanonicalCombiningClass(last) == 0)
-                        {
-                            starterIndex = i;
-                            starter = ((ulong)last) << 32;
-                            lastCcc = 0;
-                            break;
-                        }
-                    }
+                    // ブロック
+                    list[insertIndex++] = c;
+                    last = c;
                     continue;
                 }
 
                 var key = starter | (ulong)c;
                 int composed;
-                if (CompositionTable.TryGetValue(key, out composed))
+                if ((ccc != 0 || (ccc == 0 && lastCcc == 0)) && CompositionTable.TryGetValue(key, out composed))
                 {
                     list[starterIndex] = composed;
                     starter = ((ulong)composed) << 32;
