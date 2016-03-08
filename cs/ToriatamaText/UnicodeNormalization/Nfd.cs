@@ -66,20 +66,16 @@ namespace ToriatamaText.UnicodeNormalization
                 ulong v;
                 if (DecompositionTable.TryGetValue(code, out v))
                 {
-                    var first = ((int)v) & 0xFFFFFF;
-                    if (first != 0)
-                    {
-                        DecompCore(first, ref result);
+                    DecompCore((int)(v >> 32), ref result);
 
-                        var second = ((int)(v >> 24)) & 0xFFFFFF;
-                        if (second != 0)
-                            DecompCore(second, ref result);
-
-                        return;
-                    }
+                    var second = (int)v;
+                    if (second != 0)
+                        DecompCore(second, ref result);
                 }
-
-                result.Add(code);
+                else
+                {
+                    result.Add(code);
+                }
             }
         }
     }

@@ -64,11 +64,28 @@ void GenerateDefaultTlds()
 class UnicodeDataRow
 {
     public int Code;
-    public int CanonicalCombiningClass;
+    public byte CanonicalCombiningClass;
     public string[] DecompositionMapping;
 }
 
 int ParseHex(string x) => int.Parse(x, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+
+void ForEachCodePoint(string range, Action<int> action)
+{
+    var s = range.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+    if (s.Length == 1)
+        action(ParseHex(s[0]));
+    else if (s.Length == 2)
+    {
+        var end = ParseHex(s[1]);
+        for (var i = ParseHex(s[0]); i <= end; i++)
+            action(i);
+    }
+    else
+    {
+        throw new Exception("Invalid DerivedNormalizationProps.txt");
+    }
+}
 
 void GenerateUnicodeNormalizationTables()
 {
@@ -76,6 +93,7 @@ void GenerateUnicodeNormalizationTables()
 
     var data = new List<UnicodeDataRow>();
     var compositionExclusions = new List<int>();
+    var nfcQc = new List<KeyValuePair<int, char>>();
 
     using (var client = new WebClient())
     {
@@ -89,7 +107,7 @@ void GenerateUnicodeNormalizationTables()
                 data.Add(new UnicodeDataRow
                 {
                     Code = ParseHex(s[0]),
-                    CanonicalCombiningClass = int.Parse(s[3], CultureInfo.InvariantCulture),
+                    CanonicalCombiningClass = byte.Parse(s[3], CultureInfo.InvariantCulture),
                     DecompositionMapping = mapping.Length == 0 ? null : mapping
                 });
             }
@@ -105,19 +123,11 @@ void GenerateUnicodeNormalizationTables()
                     var s = line.Split(';');
                     if (s[1].TrimStart(null).StartsWith("Full_Composition_Exclusion", StringComparison.Ordinal))
                     {
-                        var range = s[0].Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (range.Length == 1)
-                            compositionExclusions.Add(ParseHex(range[0]));
-                        else if (range.Length == 2)
-                        {
-                            var end = ParseHex(range[1]);
-                            for (var i = ParseHex(range[0]); i <= end; i++)
-                                compositionExclusions.Add(i);
-                        }
-                        else
-                        {
-                            throw new Exception("Invalid DerivedNormalizationProps.txt");
-                        }
+                        ForEachCodePoint(s[0], compositionExclusions.Add);
+                    }
+                    else if (s[1].Trim() == "NFC_QC")
+                    {
+                        ForEachCodePoint(s[0], x => nfcQc.Add(new KeyValuePair<int, char>(x, s[2].TrimStart(null)[0])));
                     }
                 }
             }
@@ -129,8 +139,13 @@ void GenerateUnicodeNormalizationTables()
     var dataDic = new Dictionary<int, UnicodeDataRow>(data.Count);
     foreach (var x in data) dataDic.Add(x.Code, x);
 
-    // Value: 0(1byte)[CCC(1byte)][マッピング2文字目(3bytes)][マッピング1文字目(3bytes)]
+    // Value: [マッピング1文字目(4bytes)][マッピング2文字目(4bytes)]
     var decompTableItems = new List<KeyValuePair<int, ulong>>();
+
+    // Key: [1文字目(4bytes)][2文字目(4bytes)]
+    var compTableItems = new List<KeyValuePair<ulong, int>>();
+
+    var canonicalCombiningClasses = new List<KeyValuePair<int, byte>>();
 
     foreach (var x in data)
     {
@@ -138,35 +153,28 @@ void GenerateUnicodeNormalizationTables()
         if (mapping != null && mapping[0][0] == '<')
             mapping = null;
 
-        if (x.CanonicalCombiningClass != 0 || mapping != null)
+        if (mapping != null)
         {
-            var value = ((ulong)x.CanonicalCombiningClass) << 48;
-
-            if (mapping != null && mapping.Length >= 1)
+            var value = ((ulong)ParseHex(mapping[0])) << 32;
+            if (mapping.Length == 2)
             {
-                value |= (ulong)ParseHex(mapping[0]);
+                value |= (ulong)ParseHex(mapping[1]);
 
-                if (mapping.Length == 2)
-                    value |= ((ulong)ParseHex(mapping[1])) << 24;
-                else if (mapping.Length > 2)
-                    throw new Exception($"\\u{Convert.ToString((int)x.Code, 16)} has too many elements in the decomposition mapping.");
+                if (compositionExclusions.BinarySearch(x.Code) < 0)
+                {
+                    compTableItems.Add(new KeyValuePair<ulong, int>(value, x.Code));
+                }
+            }
+            else if (mapping.Length > 2)
+            {
+                throw new Exception($"\\u{Convert.ToString((int)x.Code, 16)} has too many elements in the decomposition mapping.");
             }
 
             decompTableItems.Add(new KeyValuePair<int, ulong>(x.Code, value));
         }
-    }
 
-    // Key: [1文字目(4bytes)][2文字目(4bytes)]
-    var compTableItems = new List<KeyValuePair<ulong, int>>();
-
-    foreach (var x in data)
-    {
-        var mapping = x.DecompositionMapping;
-        if (mapping == null || mapping.Length != 2 || mapping[0][0] == '<' || compositionExclusions.BinarySearch(x.Code) >= 0)
-            continue;
-
-        var key = (((ulong)ParseHex(mapping[0])) << 32) | ((ulong)ParseHex(mapping[1]));
-        compTableItems.Add(new KeyValuePair<ulong, int>(key, x.Code));
+        if (x.CanonicalCombiningClass != 0)
+            canonicalCombiningClasses.Add(new KeyValuePair<int, byte>(x.Code, x.CanonicalCombiningClass));
     }
 
     using (var writer = new StreamWriter(Path.Combine("UnicodeNormalization", "Tables.g.cs")))
@@ -177,27 +185,37 @@ void GenerateUnicodeNormalizationTables()
         writer.WriteLine('{');
         writer.WriteLine("    static class Tables");
         writer.WriteLine("    {");
-        writer.WriteLine("        public static Dictionary<int, ulong> DecompositionTable { get; }");
-        writer.WriteLine("        public static Dictionary<ulong, int> CompositionTable { get; }");
-        writer.WriteLine();
-        writer.WriteLine("        static Tables()");
+        writer.WriteLine("        public static Dictionary<int, ulong> DecompositionTable {{ get; }} = new Dictionary<int, ulong>({0})", decompTableItems.Count);
         writer.WriteLine("        {");
-        writer.WriteLine("            DecompositionTable = new Dictionary<int, ulong>({0})", decompTableItems.Count);
-        writer.WriteLine("            {");
 
         foreach (var x in decompTableItems)
-            writer.WriteLine("                [0x{0:X4}] = 0x{1:X14},", x.Key, x.Value);
+            writer.WriteLine("            [0x{0:X4}] = 0x{1:X13},", x.Key, x.Value);
 
-        writer.WriteLine("            };");
+        writer.WriteLine("        };");
         writer.WriteLine();
-        writer.WriteLine("            CompositionTable = new Dictionary<ulong, int>({0})", compTableItems.Count);
-        writer.WriteLine("            {");
+        writer.WriteLine("        public static Dictionary<ulong, int> CompositionTable {{ get; }} = new Dictionary<ulong, int>({0})", compTableItems.Count);
+        writer.WriteLine("        {");
 
         foreach (var x in compTableItems)
-            writer.WriteLine("                [0x{0:X13}] = 0x{1:X4},", x.Key, x.Value);
+            writer.WriteLine("            [0x{0:X13}] = 0x{1:X4},", x.Key, x.Value);
 
-        writer.WriteLine("            };");
-        writer.WriteLine("        }");
+        writer.WriteLine("        };");
+        writer.WriteLine();
+        writer.WriteLine("        public static Dictionary<int, byte> CanonicalCombiningClasses {{ get; }} = new Dictionary<int, byte>({0})", canonicalCombiningClasses.Count);
+        writer.WriteLine("        {");
+
+        foreach (var x in canonicalCombiningClasses)
+            writer.WriteLine("            [0x{0:X4}] = (byte){1},", x.Key, x.Value);
+
+        writer.WriteLine("        };");
+        writer.WriteLine();
+        writer.WriteLine("        public static Dictionary<int, byte> NfcQcTable {{ get; }} = new Dictionary<int, byte>({0})", nfcQc.Count);
+        writer.WriteLine("        {");
+
+        foreach (var x in nfcQc)
+            writer.WriteLine("            [0x{0:X4}] = (byte)'{1}',", x.Key, x.Value);
+
+        writer.WriteLine("        };");
         writer.WriteLine("    }");
         writer.WriteLine("}");
     }

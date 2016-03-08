@@ -10,11 +10,9 @@
 
         public static int GetCanonicalCombiningClass(int code)
         {
-            //TODO: CCCを別テーブルにする
-            ulong v;
-            if (Tables.DecompositionTable.TryGetValue(code, out v))
-                return (int)(v >> 48); // & 0xFF
-            return 0;
+            byte v;
+            Tables.CanonicalCombiningClasses.TryGetValue(code, out v);
+            return v;
         }
     }
 }
