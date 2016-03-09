@@ -64,7 +64,7 @@ void GenerateDefaultTlds()
 class UnicodeDataRow
 {
     public int Code;
-    public byte CanonicalCombiningClass;
+    public int CanonicalCombiningClass;
     public string[] DecompositionMapping;
 }
 
@@ -93,7 +93,7 @@ void GenerateUnicodeNormalizationTables()
 
     var data = new List<UnicodeDataRow>();
     var compositionExclusions = new List<int>();
-    var nfcQc = new List<KeyValuePair<int, char>>();
+    var nfcQcNorM = new List<int>();
 
     using (var client = new WebClient())
     {
@@ -107,7 +107,7 @@ void GenerateUnicodeNormalizationTables()
                 data.Add(new UnicodeDataRow
                 {
                     Code = ParseHex(s[0]),
-                    CanonicalCombiningClass = byte.Parse(s[3], CultureInfo.InvariantCulture),
+                    CanonicalCombiningClass = int.Parse(s[3], CultureInfo.InvariantCulture),
                     DecompositionMapping = mapping.Length == 0 ? null : mapping
                 });
             }
@@ -127,7 +127,7 @@ void GenerateUnicodeNormalizationTables()
                     }
                     else if (s[1].Trim() == "NFC_QC")
                     {
-                        ForEachCodePoint(s[0], x => nfcQc.Add(new KeyValuePair<int, char>(x, s[2].TrimStart(null)[0])));
+                        ForEachCodePoint(s[0], nfcQcNorM.Add);
                     }
                 }
             }
@@ -135,6 +135,7 @@ void GenerateUnicodeNormalizationTables()
     }
 
     compositionExclusions.Sort();
+    nfcQcNorM.Sort();
 
     var dataDic = new Dictionary<int, UnicodeDataRow>(data.Count);
     foreach (var x in data) dataDic.Add(x.Code, x);
@@ -145,7 +146,7 @@ void GenerateUnicodeNormalizationTables()
     // Key: [1文字目(4bytes)][2文字目(4bytes)]
     var compTableItems = new List<KeyValuePair<ulong, int>>();
 
-    var canonicalCombiningClasses = new List<KeyValuePair<int, byte>>();
+    var cccAndQcTableItems = new List<KeyValuePair<int, int>>();
 
     foreach (var x in data)
     {
@@ -173,8 +174,9 @@ void GenerateUnicodeNormalizationTables()
             decompTableItems.Add(new KeyValuePair<int, ulong>(x.Code, value));
         }
 
-        if (x.CanonicalCombiningClass != 0)
-            canonicalCombiningClasses.Add(new KeyValuePair<int, byte>(x.Code, x.CanonicalCombiningClass));
+        var nfcQc = nfcQcNorM.BinarySearch(x.Code) >= 0 ? (1 << 8) : 0;
+        if (x.CanonicalCombiningClass != 0 || nfcQc != 0)
+            cccAndQcTableItems.Add(new KeyValuePair<int, int>(x.Code, x.CanonicalCombiningClass | nfcQc));
     }
 
     using (var writer = new StreamWriter(Path.Combine("UnicodeNormalization", "Tables.g.cs")))
@@ -201,21 +203,14 @@ void GenerateUnicodeNormalizationTables()
 
         writer.WriteLine("        };");
         writer.WriteLine();
-        writer.WriteLine("        public static Dictionary<int, byte> CanonicalCombiningClasses {{ get; }} = new Dictionary<int, byte>({0})", canonicalCombiningClasses.Count);
+        writer.WriteLine("        public static Dictionary<int, short> CccAndQcTable {{ get; }} = new Dictionary<int, short>({0})", cccAndQcTableItems.Count);
         writer.WriteLine("        {");
 
-        foreach (var x in canonicalCombiningClasses)
-            writer.WriteLine("            [0x{0:X4}] = (byte){1},", x.Key, x.Value);
+        foreach (var x in cccAndQcTableItems)
+            writer.WriteLine("            [0x{0:X4}] = 0x{1:X3},", x.Key, x.Value);
 
         writer.WriteLine("        };");
         writer.WriteLine();
-        writer.WriteLine("        public static Dictionary<int, byte> NfcQcTable {{ get; }} = new Dictionary<int, byte>({0})", nfcQc.Count);
-        writer.WriteLine("        {");
-
-        foreach (var x in nfcQc)
-            writer.WriteLine("            [0x{0:X4}] = (byte)'{1}',", x.Key, x.Value);
-
-        writer.WriteLine("        };");
         writer.WriteLine("    }");
         writer.WriteLine("}");
     }

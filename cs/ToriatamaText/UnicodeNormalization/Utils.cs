@@ -10,9 +10,9 @@
 
         public static int GetCanonicalCombiningClass(int code)
         {
-            byte v;
-            Tables.CanonicalCombiningClasses.TryGetValue(code, out v);
-            return v;
+            short v;
+            Tables.CccAndQcTable.TryGetValue(code, out v);
+            return v & 0xFF;
         }
     }
 }
