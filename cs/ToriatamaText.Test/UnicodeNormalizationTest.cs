@@ -34,8 +34,19 @@ namespace ToriatamaText.Test
                 // NFC
                 // c2 == toNFC(c1) == toNFC(c2) == toNFC(c3)
                 // c4 == toNFC(c4) == toNFC(c5)
-                if (!(ToString(NewNfc.Compose(x[0])) == x[1] && ToString(NewNfc.Compose(x[1])) == x[1] && ToString(NewNfc.Compose(x[2])) == x[1]
-                    && ToString(NewNfc.Compose(x[3])) == x[3] && ToString(NewNfc.Compose(x[4])) == x[3]))
+                MiniList<char> r1;
+                var s1 = NewSuperNfc.Compose(x[0], out r1) ? ToString(r1) : x[0];
+                MiniList<char> r2;
+                var s2 = NewSuperNfc.Compose(x[1], out r2) ? ToString(r2) : x[1];
+                MiniList<char> r3;
+                var s3 = NewSuperNfc.Compose(x[2], out r3) ? ToString(r3) : x[2];
+                MiniList<char> r4;
+                var s4 = NewSuperNfc.Compose(x[3], out r4) ? ToString(r4) : x[3];
+                MiniList<char> r5;
+                var s5 = NewSuperNfc.Compose(x[4], out r5) ? ToString(r5) : x[4];
+
+                if (!(s1 == x[1] && s2 == x[1] && s3 == x[1]
+                    && s4 == x[3] && s5 == x[3]))
                 {
                     Debugger.Break();
                 }
@@ -50,7 +61,10 @@ namespace ToriatamaText.Test
                 foreach (var x in tests)
                 {
                     foreach (var y in x)
-                        NewNfc.Compose(y);
+                    {
+                        MiniList<char> _;
+                        NewSuperNfc.Compose(y, out _);
+                    }
                 }
             }
             stopwatch.Stop();
@@ -94,6 +108,11 @@ namespace ToriatamaText.Test
                 }
             }
             return sb.ToString();
+        }
+
+        static string ToString(MiniList<char> miniList)
+        {
+            return new string(miniList.InnerArray, 0, miniList.Count);
         }
 
         static string[][] LoadTests()

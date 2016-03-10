@@ -16,6 +16,9 @@ namespace ToriatamaText
 
         public Validator(Extractor extractor)
         {
+            if (extractor == null)
+                throw new ArgumentNullException(nameof(extractor));
+
             this._extractor = extractor;
         }
 

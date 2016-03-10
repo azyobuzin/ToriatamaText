@@ -4,7 +4,7 @@ namespace ToriatamaText.InternalExtractors
 {
     struct MiniList<T>
     {
-        private T[] _array;
+        public T[] InnerArray { get; set; }
 
         public int Count { get; set; }
 
@@ -15,45 +15,50 @@ namespace ToriatamaText.InternalExtractors
 
         public void SetCapacity(int capacity)
         {
-            if (this._array == null || this._array.Length < capacity)
+            if (this.InnerArray == null || this.InnerArray.Length < capacity)
             {
                 var newArray = new T[capacity];
 
                 if (this.Count > 0)
-                    Array.Copy(this._array, newArray, this.Count);
+                    Array.Copy(this.InnerArray, newArray, this.Count);
 
-                this._array = newArray;
+                this.InnerArray = newArray;
+            }
+        }
+
+        public void EnsureCapacity(int additionalCapacity)
+        {
+            var minCapacity = this.Count + additionalCapacity;
+            if (this.InnerArray == null)
+            {
+                this.InnerArray = new T[Math.Max(4, minCapacity)];
+            }
+            else if (this.InnerArray.Length < minCapacity)
+            {
+                var newArray = new T[Math.Max(this.Count * 2, minCapacity)];
+                Array.Copy(this.InnerArray, newArray, this.Count);
+                this.InnerArray = newArray;
             }
         }
 
         public void Add(T value)
         {
-            if (this._array == null)
-            {
-                this._array = new T[4];
-            }
-            else if (this._array.Length == this.Count)
-            {
-                var newArray = new T[this.Count * 2];
-                Array.Copy(this._array, newArray, this.Count);
-                this._array = newArray;
-            }
-
-            this._array[this.Count++] = value;
+            this.EnsureCapacity(1);
+            this.InnerArray[this.Count++] = value;
         }
 
         public T this[int index]
         {
             get
             {
-                return this._array[index];
+                return this.InnerArray[index];
             }
             set
             {
-                this._array[index] = value;
+                this.InnerArray[index] = value;
             }
         }
 
-        public T Last => this._array[this.Count - 1];
+        public T Last => this.InnerArray[this.Count - 1];
     }
 }
