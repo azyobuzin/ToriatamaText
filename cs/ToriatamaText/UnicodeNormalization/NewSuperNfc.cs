@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using ToriatamaText.InternalExtractors;
 
 namespace ToriatamaText.UnicodeNormalization
@@ -59,6 +60,8 @@ namespace ToriatamaText.UnicodeNormalization
             return true;
         }
 
+        // char.IsHighSurrogate と使い分けると速度が変わってる（ような気がする）
+
         private static bool IsHighSurrogate(int code)
         {
             return code >= 0xD800 && code <= 0xDBFF;
@@ -74,16 +77,21 @@ namespace ToriatamaText.UnicodeNormalization
             return ((hi - 0xD800) * 0x400) + (lo - 0xDC00) + 0x10000;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] // 効果大
         private static int ToCodePoint(string s, int index, out bool isSurrogatePair)
         {
-            isSurrogatePair = char.IsSurrogatePair(s, index);
-            return isSurrogatePair ? ToCodePoint(s[index], s[index + 1]) : s[index];
+            int hi = s[index];
+            // 下位サロゲート用の変数をつくると低速化する
+            isSurrogatePair = IsHighSurrogate(hi) && index + 1 < s.Length && IsLowSurrogate(s[index + 1]);
+            return isSurrogatePair ? ToCodePoint(hi, s[index + 1]) : hi;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int ToCodePoint(char[] c, int index, out bool isSurrogatePair)
         {
-            isSurrogatePair = char.IsHighSurrogate(c[index]) && index + 1 < c.Length && char.IsLowSurrogate(c[index + 1]);
-            return isSurrogatePair ? ToCodePoint(c[index], c[index + 1]) : c[index];
+            int hi = c[index];
+            isSurrogatePair = IsHighSurrogate(hi) && index + 1 < c.Length && IsLowSurrogate(c[index + 1]);
+            return isSurrogatePair ? ToCodePoint(hi, c[index + 1]) : hi;
         }
 
         private static int IndexOfLastNormalizedChar(string s, int startIndex, out bool isFirstCharToNormalizeSurrogatePair)
@@ -100,7 +108,7 @@ namespace ToriatamaText.UnicodeNormalization
                 {
                     if (i > 0)
                     {
-                        isFirstCharToNormalizeSurrogatePair = i >= 2 && char.IsSurrogatePair(s, i - 2);
+                        isFirstCharToNormalizeSurrogatePair = i >= 2 && char.IsHighSurrogate(s[i - 2]) && char.IsLowSurrogate(s[i - 1]);
                         i -= isFirstCharToNormalizeSurrogatePair ? 2 : 1;
                     }
                     else
@@ -218,7 +226,7 @@ namespace ToriatamaText.UnicodeNormalization
             {
                 var hi = list[startIndex + i];
                 var lo = '\0';
-                var isSurrogatePair = char.IsHighSurrogate(hi) && startIndex + i + 1 < list.Count
+                var isSurrogatePair = IsHighSurrogate(hi) && startIndex + i + 1 < list.Count
                     && char.IsLowSurrogate(lo = list[startIndex + i + 1]);
                 var code = isSurrogatePair ? ToCodePoint(hi, lo) : hi;
 
@@ -307,7 +315,7 @@ namespace ToriatamaText.UnicodeNormalization
             {
                 var hi = list[i];
                 var lo = '\0';
-                var isSurrogatePair = char.IsHighSurrogate(hi)
+                var isSurrogatePair = IsHighSurrogate(hi)
                     && i + 1 < list.Count && char.IsLowSurrogate(lo = list[i + 1]);
                 int c;
                 if (isSurrogatePair)
