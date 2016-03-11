@@ -62,8 +62,9 @@ namespace ToriatamaText.Test
                 {
                     foreach (var y in x)
                     {
-                        MiniList<char> _;
-                        NewSuperNfc.Compose(y, out _);
+                        MiniList<char> result;
+                        if (NewSuperNfc.Compose(y, out result))
+                            ToString(result);
                     }
                 }
             }
