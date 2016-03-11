@@ -22,15 +22,6 @@ namespace ToriatamaText.Test
 
             foreach (var x in tests)
             {
-                // NFD
-                // c3 == toNFD(c1) == toNFD(c2) == toNFD(c3)
-                // c5 == toNFD(c4) == toNFD(c5)
-                //if (!(ToString(Nfd.Decompose(x[0])) == x[2] && ToString(Nfd.Decompose(x[1])) == x[2] && ToString(Nfd.Decompose(x[2])) == x[2]
-                //    && ToString(Nfd.Decompose(x[3])) == x[4] && ToString(Nfd.Decompose(x[4])) == x[4]))
-                //{
-                //    Debugger.Break();
-                //}
-
                 // NFC
                 // c2 == toNFC(c1) == toNFC(c2) == toNFC(c3)
                 // c4 == toNFC(c4) == toNFC(c5)
@@ -53,7 +44,7 @@ namespace ToriatamaText.Test
             }
 
             var stopwatch = new Stopwatch();
-            const int ntimes = 100;
+            const int ntimes = 300;
 
             stopwatch.Start();
             for (var i = 0; i < ntimes; i++)

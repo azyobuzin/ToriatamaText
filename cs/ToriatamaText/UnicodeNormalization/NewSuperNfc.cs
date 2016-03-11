@@ -74,15 +74,25 @@ namespace ToriatamaText.UnicodeNormalization
             return ((hi - 0xD800) * 0x400) + (lo - 0xDC00) + 0x10000;
         }
 
+        private static int ToCodePoint(string s, int index, out bool isSurrogatePair)
+        {
+            isSurrogatePair = char.IsSurrogatePair(s, index);
+            return isSurrogatePair ? ToCodePoint(s[index], s[index + 1]) : s[index];
+        }
+
+        private static int ToCodePoint(char[] c, int index, out bool isSurrogatePair)
+        {
+            isSurrogatePair = char.IsHighSurrogate(c[index]) && index + 1 < c.Length && char.IsLowSurrogate(c[index + 1]);
+            return isSurrogatePair ? ToCodePoint(c[index], c[index + 1]) : c[index];
+        }
+
         private static int IndexOfLastNormalizedChar(string s, int startIndex, out bool isFirstCharToNormalizeSurrogatePair)
         {
             var i = startIndex;
             while (i < s.Length)
             {
-                int x = s[i];
-                var isSurrogatePair = IsHighSurrogate(x);
-                if (isSurrogatePair)
-                    x = ToCodePoint(x, s[i + 1]);
+                bool isSurrogatePair;
+                var x = ToCodePoint(s, i, out isSurrogatePair);
 
                 // CccAndQcTable にキーが存在する
                 // → CCC が 0 ではない、または NFC_QC が YES ではない
@@ -90,8 +100,7 @@ namespace ToriatamaText.UnicodeNormalization
                 {
                     if (i > 0)
                     {
-                        // 有効なサロゲートペアじゃなかったら死ね
-                        isFirstCharToNormalizeSurrogatePair = IsLowSurrogate(s[i - 1]);
+                        isFirstCharToNormalizeSurrogatePair = i >= 2 && char.IsSurrogatePair(s, i - 2);
                         i -= isFirstCharToNormalizeSurrogatePair ? 2 : 1;
                     }
                     else
@@ -124,10 +133,8 @@ namespace ToriatamaText.UnicodeNormalization
             var i = startIndex;
             while (i < s.Length)
             {
-                int x = s[i];
-                var isSurrogatePair = IsHighSurrogate(x);
-                if (isSurrogatePair)
-                    x = ToCodePoint(x, s[i + 1]);
+                bool isSurrogatePair;
+                var x = ToCodePoint(s, i, out isSurrogatePair);
                 if (!CccAndQcTable.ContainsKey(x))
                     break;
                 i += isSurrogatePair ? 2 : 1;
@@ -140,10 +147,8 @@ namespace ToriatamaText.UnicodeNormalization
             var i = startIndex;
             while (i < endIndex)
             {
-                int x = s[i];
-                var isSurrogatePair = IsHighSurrogate(x);
-                if (isSurrogatePair)
-                    x = ToCodePoint(x, s[i + 1]);
+                bool isSurrogatePair;
+                var x = ToCodePoint(s, i, out isSurrogatePair);
 
                 DecompCore(x, ref dest);
 
@@ -213,8 +218,9 @@ namespace ToriatamaText.UnicodeNormalization
             {
                 var hi = list[startIndex + i];
                 var lo = '\0';
-                var isSurrogatePair = char.IsHighSurrogate(hi);
-                var code = isSurrogatePair ? ToCodePoint(hi, lo = list[startIndex + i + 1]) : hi;
+                var isSurrogatePair = char.IsHighSurrogate(hi) && startIndex + i + 1 < list.Count
+                    && char.IsLowSurrogate(lo = list[startIndex + i + 1]);
+                var code = isSurrogatePair ? ToCodePoint(hi, lo) : hi;
 
                 var ccc = GetCanonicalCombiningClass(code);
                 cccCache[i] = ccc;
@@ -288,10 +294,8 @@ namespace ToriatamaText.UnicodeNormalization
 
         private static void ComposeInRange(ref MiniList<char> list, int startIndex)
         {
-            int last = list[startIndex];
-            var isLastSurrogatePair = IsHighSurrogate(last);
-            if (isLastSurrogatePair)
-                last = ToCodePoint(last, list[startIndex + 1]);
+            bool isLastSurrogatePair;
+            int last = ToCodePoint(list.InnerArray, startIndex, out isLastSurrogatePair);
             var starterIndex = startIndex;
             var starter = ((ulong)last) << 32;
             var isStarterSurrogatePair = isLastSurrogatePair;
@@ -299,12 +303,23 @@ namespace ToriatamaText.UnicodeNormalization
             var insertIndex = i;
             var lastCcc = 0;
 
-            for (; i < list.Count; i++)
+            while (i < list.Count)
             {
                 var hi = list[i];
                 var lo = '\0';
-                var isSurrogatePair = char.IsHighSurrogate(hi);
-                var c = isSurrogatePair ? ToCodePoint(hi, lo = list[++i]) : hi;
+                var isSurrogatePair = char.IsHighSurrogate(hi)
+                    && i + 1 < list.Count && char.IsLowSurrogate(lo = list[i + 1]);
+                int c;
+                if (isSurrogatePair)
+                {
+                    c = ToCodePoint(hi, lo);
+                    i += 2;
+                }
+                else
+                {
+                    c = hi;
+                    i++;
+                }
 
                 // ハングル
                 if (!isLastSurrogatePair && !isSurrogatePair) // このifあってる？？
