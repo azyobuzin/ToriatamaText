@@ -93,7 +93,7 @@ void GenerateUnicodeNormalizationTables()
 
     var data = new List<UnicodeDataRow>();
     var compositionExclusions = new List<int>();
-    var nfcQcNorM = new List<int>();
+    var nfcQcNorM = new HashSet<int>();
 
     using (var client = new WebClient())
     {
@@ -127,7 +127,7 @@ void GenerateUnicodeNormalizationTables()
                     }
                     else if (s[1].Trim() == "NFC_QC")
                     {
-                        ForEachCodePoint(s[0], nfcQcNorM.Add);
+                        ForEachCodePoint(s[0], x => nfcQcNorM.Add(x));
                     }
                 }
             }
@@ -135,7 +135,6 @@ void GenerateUnicodeNormalizationTables()
     }
 
     compositionExclusions.Sort();
-    nfcQcNorM.Sort();
 
     var dataDic = new Dictionary<int, UnicodeDataRow>(data.Count);
     foreach (var x in data) dataDic.Add(x.Code, x);
@@ -174,9 +173,8 @@ void GenerateUnicodeNormalizationTables()
             decompTableItems.Add(new KeyValuePair<int, ulong>(x.Code, value));
         }
 
-        var nfcQc = nfcQcNorM.BinarySearch(x.Code) >= 0 ? (1 << 8) : 0;
-        if (x.CanonicalCombiningClass != 0 || nfcQc != 0)
-            cccAndQcTableItems.Add(new KeyValuePair<int, int>(x.Code, x.CanonicalCombiningClass | nfcQc));
+        if (x.CanonicalCombiningClass != 0 || nfcQcNorM.Contains(x.Code))
+            cccAndQcTableItems.Add(new KeyValuePair<int, int>(x.Code, x.CanonicalCombiningClass));
     }
 
     using (var writer = new StreamWriter(Path.Combine("UnicodeNormalization", "Tables.g.cs")))
@@ -203,11 +201,11 @@ void GenerateUnicodeNormalizationTables()
 
         writer.WriteLine("        };");
         writer.WriteLine();
-        writer.WriteLine("        public static Dictionary<int, short> CccAndQcTable {{ get; }} = new Dictionary<int, short>({0})", cccAndQcTableItems.Count);
+        writer.WriteLine("        public static Dictionary<int, byte> CccAndQcTable {{ get; }} = new Dictionary<int, byte>({0})", cccAndQcTableItems.Count);
         writer.WriteLine("        {");
 
         foreach (var x in cccAndQcTableItems)
-            writer.WriteLine("            [0x{0:X4}] = 0x{1:X3},", x.Key, x.Value);
+            writer.WriteLine("            [0x{0:X4}] = {1},", x.Key, x.Value);
 
         writer.WriteLine("        };");
         writer.WriteLine();

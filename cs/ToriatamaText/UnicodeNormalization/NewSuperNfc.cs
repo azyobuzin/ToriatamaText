@@ -4,11 +4,16 @@ using ToriatamaText.InternalExtractors;
 namespace ToriatamaText.UnicodeNormalization
 {
     using static Tables;
-    using static Utils;
 
     static class NewSuperNfc
     {
-        //TODO: CccAndQcTableにQCの値なくてもわかるじゃん？
+        //TODO: テーブルを UTF-16 用に最適化
+
+        private const int SBase = 0xAC00,
+            LBase = 0x1100, VBase = 0x1161, TBase = 0x11A7,
+            LCount = 19, VCount = 21, TCount = 28,
+            NCount = VCount * TCount,
+            SCount = LCount * NCount;
 
         /// <returns><c>true</c>なら<param name="result" />に結果が入る。<c>false</c>なら既に正規化されている。</returns>
         public static bool Compose(string s, out MiniList<char> result)
@@ -24,17 +29,16 @@ namespace ToriatamaText.UnicodeNormalization
             }
 
             // ここからが本番
-            var list = StringToMiniList(s, i);
+            result = StringToMiniList(s, i);
 
             while (true)
             {
                 var nextQcYes = FindNextNfcQcYes(s, i + (isFirstCharToNormalizeSurrogatePair ? 2 : 1));
-                DecomposeInRange(s, i, nextQcYes, ref list);
-                if (i + 1 < list.Count)
-                {
-                    ReorderInRange(ref list, i);
-                    ComposeInRange(ref list, i);
-                }
+                var countBeforeDecompose = result.Count;
+
+                DecomposeInRange(s, i, nextQcYes, ref result);
+                ReorderInRange(ref result, countBeforeDecompose);
+                ComposeInRange(ref result, countBeforeDecompose);
 
                 if (nextQcYes == s.Length)
                     break;
@@ -42,14 +46,16 @@ namespace ToriatamaText.UnicodeNormalization
                 i = IndexOfLastNormalizedChar(s, nextQcYes + 1, out isFirstCharToNormalizeSurrogatePair);
 
                 var len = (i == -1 ? s.Length : i) - nextQcYes;
-                list.EnsureCapacity(len);
-                s.CopyTo(nextQcYes, list.InnerArray, list.Count, len);
-                list.Count += len;
+                if (len > 0)
+                {
+                    result.EnsureCapacity(len);
+                    s.CopyTo(nextQcYes, result.InnerArray, result.Count, len);
+                    result.Count += len;
+                }
 
                 if (i == -1) break;
             }
 
-            result = list;
             return true;
         }
 
@@ -145,22 +151,6 @@ namespace ToriatamaText.UnicodeNormalization
             }
         }
 
-        private static void AddCodePoint(ref MiniList<char> result, int code)
-        {
-            if (code <= char.MaxValue)
-            {
-                result.Add((char)code);
-            }
-            else
-            {
-                result.EnsureCapacity(2);
-                code -= 0x10000;
-                result.InnerArray[result.Count] = (char)(code / 0x400 + 0xD800);
-                result.InnerArray[result.Count + 1] = (char)(code % 0x400 + 0xDC00);
-                result.Count += 2;
-            }
-        }
-
         private static void DecompCore(int code, ref MiniList<char> result)
         {
             var SIndex = code - SBase;
@@ -170,9 +160,10 @@ namespace ToriatamaText.UnicodeNormalization
                 var L = LBase + SIndex / NCount;
                 var V = VBase + (SIndex % NCount) / TCount;
                 var T = TBase + SIndex % TCount;
-                AddCodePoint(ref result, L);
-                AddCodePoint(ref result, V);
-                if (T != TBase) AddCodePoint(ref result, T);
+                result.EnsureCapacity(3);
+                result.InnerArray[result.Count++] = (char)L;
+                result.InnerArray[result.Count++] = (char)V;
+                if (T != TBase) result.InnerArray[result.Count++] = (char)T;
             }
             else
             {
@@ -187,9 +178,27 @@ namespace ToriatamaText.UnicodeNormalization
                 }
                 else
                 {
-                    AddCodePoint(ref result, code);
+                    if (code <= char.MaxValue)
+                    {
+                        result.Add((char)code);
+                    }
+                    else
+                    {
+                        result.EnsureCapacity(2);
+                        code -= 0x10000;
+                        result.InnerArray[result.Count] = (char)(code / 0x400 + 0xD800);
+                        result.InnerArray[result.Count + 1] = (char)(code % 0x400 + 0xDC00);
+                        result.Count += 2;
+                    }
                 }
             }
+        }
+
+        private static int GetCanonicalCombiningClass(int code)
+        {
+            byte v;
+            CccAndQcTable.TryGetValue(code, out v);
+            return v;
         }
 
         private static void ReorderInRange(ref MiniList<char> list, int startIndex)
@@ -336,6 +345,7 @@ namespace ToriatamaText.UnicodeNormalization
                     if (isSurrogatePair)
                         list[insertIndex++] = lo;
                     last = c;
+                    isLastSurrogatePair = isSurrogatePair;
                     continue;
                 }
 
