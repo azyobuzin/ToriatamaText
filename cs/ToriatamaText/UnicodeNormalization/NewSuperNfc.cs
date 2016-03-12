@@ -8,8 +8,6 @@ namespace ToriatamaText.UnicodeNormalization
 
     static class NewSuperNfc
     {
-        //TODO: テーブルを UTF-16 用に最適化
-
         private const int SBase = 0xAC00,
             LBase = 0x1100, VBase = 0x1161, TBase = 0x11A7,
             LCount = 19, VCount = 21, TCount = 28,
@@ -201,12 +199,13 @@ namespace ToriatamaText.UnicodeNormalization
             }
             else
             {
-                ulong v;
-                if (DecompositionTable.TryGetValue(code, out v))
+                var i = LookupDecompositionTable(code);
+                if (i != -1)
                 {
-                    DecompCore((uint)(v >> 32), ref result);
+                    var first = DecompositionTableEntries[i];
+                    DecompCore(first, ref result);
 
-                    var second = (uint)v;
+                    var second = DecompositionTableEntries[i + 1];
                     if (second != 0)
                         DecompCore(second, ref result);
                 }

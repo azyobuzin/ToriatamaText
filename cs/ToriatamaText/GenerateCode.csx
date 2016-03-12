@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 
+Directory.CreateDirectory("obj");
+
 GenerateDefaultTlds();
 GenerateUnicodeNormalizationTables();
 
@@ -12,8 +14,15 @@ void GenerateDefaultTlds()
 {
     Console.WriteLine(nameof(GenerateDefaultTlds));
 
-    using (var client = new WebClient())
-    using (var reader = new StreamReader(client.OpenRead("https://github.com/twitter/twitter-text/raw/master/conformance/tld_lib.yml")))
+    var tldFile = Path.Combine("obj", "tld_lib.yml");
+    if (!File.Exists(tldFile))
+    {
+        Console.WriteLine("Downloading tld_lib.yml");
+        using (var client = new WebClient())
+            client.DownloadFile("https://github.com/twitter/twitter-text/raw/master/conformance/tld_lib.yml", tldFile);
+    }
+
+    using (var reader = new StreamReader(tldFile))
     using (var writer = new StreamWriter("DefaultTlds.g.cs"))
     {
         writer.WriteLine("using System.Collections.Generic;");
@@ -97,13 +106,29 @@ void GenerateUnicodeNormalizationTables()
 {
     Console.WriteLine(nameof(GenerateUnicodeNormalizationTables));
 
+    var unicodeDataFile = Path.Combine("obj", "UnicodeData.txt");
+    if (!File.Exists(unicodeDataFile))
+    {
+        Console.WriteLine("Downloading UnicodeData.txt");
+        using (var client = new WebClient())
+            client.DownloadFile("http://www.unicode.org/Public/UCD/latest/ucd/UnicodeData.txt", unicodeDataFile);
+    }
+
+    var normPropsFile = Path.Combine("obj", "DerivedNormalizationProps.txt");
+    if (!File.Exists(normPropsFile))
+    {
+        Console.WriteLine("Downloading DerivedNormalizationProps.txt");
+        using (var client = new WebClient())
+            client.DownloadFile("http://www.unicode.org/Public/UCD/latest/ucd/DerivedNormalizationProps.txt", normPropsFile);
+    }
+
     var data = new List<UnicodeDataRow>();
     var compositionExclusions = new List<int>();
     var nfcQcNorM = new HashSet<int>();
 
     using (var client = new WebClient())
     {
-        using (var reader = new StreamReader(client.OpenRead("http://www.unicode.org/Public/UCD/latest/ucd/UnicodeData.txt")))
+        using (var reader = new StreamReader(unicodeDataFile))
         {
             string line;
             while (!string.IsNullOrEmpty(line = reader.ReadLine()))
@@ -119,7 +144,7 @@ void GenerateUnicodeNormalizationTables()
             }
         }
 
-        using (var reader = new StreamReader(client.OpenRead("http://www.unicode.org/Public/UCD/latest/ucd/DerivedNormalizationProps.txt")))
+        using (var reader = new StreamReader(normPropsFile))
         {
             string line;
             while ((line = reader.ReadLine()) != null)
@@ -183,24 +208,54 @@ void GenerateUnicodeNormalizationTables()
             cccAndQcTableItems.Add(new KeyValuePair<uint, int>(ToUtf16(x.Code), x.CanonicalCombiningClass));
     }
 
-    var cccAndQcTableCapacity = (uint)Math.Pow(2, 10);
-    var cccAndQcTableBuckets = new int[cccAndQcTableCapacity];
-    for (var i = 0; i < cccAndQcTableCapacity; i++) cccAndQcTableBuckets[i] = -1;
-    // [value(1byte)][next(2bytes)][key(4bytes)]
-    var cccAndQcTableEntries = new ulong[cccAndQcTableItems.Count];
-    uint cccAndQcTableEntryIndex = 0;
+    uint decompTableCapacity = 2048;
+    var decompTableBuckets = new int[decompTableCapacity];
+    for (uint i = 0; i < decompTableCapacity; i++) decompTableBuckets[i] = -1;
+    // 要素1: キー
+    // 要素2: 次のエントリーのキーのインデックス
+    // 要素3: 値（1文字目）
+    // 要素4: 値（2文字目）
+    var decompTableEntries = new uint[decompTableItems.Count * 4];
+    var decompTableEntryIndex = 0;
 
-    Console.WriteLine("CccAndQcTable");
-    foreach (var group in cccAndQcTableItems.GroupBy(x => x.Key & (cccAndQcTableCapacity - 1)))
+    Console.WriteLine("DecompositionTable");
+    foreach (var group in decompTableItems.GroupBy(x => x.Key % decompTableCapacity))
     {
         Console.Write(group.Count() + " ");
-        ulong next = ushort.MaxValue;
+        var next = -1;
         foreach (var x in group)
         {
-            cccAndQcTableEntries[cccAndQcTableEntryIndex] = ((ulong)x.Value) << 48 | next << 32 | ((ulong)x.Key);
+            decompTableEntries[decompTableEntryIndex] = x.Key;
+            decompTableEntries[decompTableEntryIndex + 1] = (uint)next;
+            decompTableEntries[decompTableEntryIndex + 2] = (uint)(x.Value >> 32);
+            decompTableEntries[decompTableEntryIndex + 3] = (uint)x.Value;
+            next = decompTableEntryIndex;
+            decompTableEntryIndex += 4;
+        }
+        decompTableBuckets[group.Key] = next;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine(decompTableBuckets.LongCount(x => x == -1));
+
+    uint cccAndQcTableCapacity = 1024;
+    var cccAndQcTableBuckets = new int[cccAndQcTableCapacity];
+    for (uint i = 0; i < cccAndQcTableCapacity; i++) cccAndQcTableBuckets[i] = -1;
+    // [value(1byte)][next(2bytes)][key(4bytes)]
+    var cccAndQcTableEntries = new ulong[cccAndQcTableItems.Count];
+    int cccAndQcTableEntryIndex = 0;
+
+    Console.WriteLine("CccAndQcTable");
+    foreach (var group in cccAndQcTableItems.GroupBy(x => x.Key % cccAndQcTableCapacity))
+    {
+        Console.Write(group.Count() + " ");
+        int next = 0xFFFF;
+        foreach (var x in group)
+        {
+            cccAndQcTableEntries[cccAndQcTableEntryIndex] = ((ulong)x.Value) << 48 | ((ulong)next) << 32 | ((ulong)x.Key);
             next = cccAndQcTableEntryIndex++;
         }
-        cccAndQcTableBuckets[group.Key] = (int)next;
+        cccAndQcTableBuckets[group.Key] = next;
     }
 
     Console.WriteLine();
@@ -214,15 +269,24 @@ void GenerateUnicodeNormalizationTables()
         writer.WriteLine('{');
         writer.WriteLine("    partial class Tables");
         writer.WriteLine("    {");
-        writer.WriteLine("        public static Dictionary<uint, ulong> DecompositionTable {{ get; }} = new Dictionary<uint, ulong>({0})", decompTableItems.Count);
-        writer.WriteLine("        {");
-
-        foreach (var x in decompTableItems)
-            writer.WriteLine("            [0x{0:X4}] = 0x{1:X13},", x.Key, x.Value);
-
-        writer.WriteLine("        };");
+        writer.WriteLine("        private const int DecompositionTableCapacity = {0:D};", decompTableCapacity);
         writer.WriteLine();
-        writer.WriteLine("        public static Dictionary<ulong, uint> CompositionTable {{ get; }} = new Dictionary<ulong, uint>({0})", compTableItems.Count);
+        writer.Write("        private static readonly short[] DecompositionTableBuckets = { ");
+
+        foreach (var x in decompTableBuckets)
+            writer.Write(x.ToString("D") + ", ");
+
+        writer.WriteLine("};");
+        writer.WriteLine();
+        writer.WriteLine("        // Count: {0:D} * 4 = {1:D}", decompTableItems.Count, decompTableEntries.Length);
+        writer.Write("        public static readonly uint[] DecompositionTableEntries = { ");
+
+        foreach (var x in decompTableEntries)
+            writer.Write("0x{0:X4}, ", x);
+
+        writer.WriteLine("};");
+        writer.WriteLine();
+        writer.WriteLine("        public static Dictionary<ulong, uint> CompositionTable {{ get; }} = new Dictionary<ulong, uint>({0:D})", compTableItems.Count);
         writer.WriteLine("        {");
 
         foreach (var x in compTableItems)
@@ -230,16 +294,17 @@ void GenerateUnicodeNormalizationTables()
 
         writer.WriteLine("        };");
         writer.WriteLine();
-        writer.WriteLine("        public const int CccAndQcTableCapacity = {0};", cccAndQcTableCapacity);
+        writer.WriteLine("        private const int CccAndQcTableCapacity = {0:D};", cccAndQcTableCapacity);
         writer.WriteLine();
-        writer.Write("        public static short[] CccAndQcTableBuckets { get; } = { ");
+        writer.Write("        private static readonly short[] CccAndQcTableBuckets = { ");
 
         foreach (var x in cccAndQcTableBuckets)
-            writer.Write(x.ToString(CultureInfo.InvariantCulture) + ", ");
+            writer.Write(x.ToString("D") + ", ");
 
         writer.WriteLine("};");
         writer.WriteLine();
-        writer.Write("        public static ulong[] CccAndQcTableEntries { get; } = { ");
+        writer.WriteLine("        // Count: " + cccAndQcTableEntries.Length.ToString("D"));
+        writer.Write("        private static readonly ulong[] CccAndQcTableEntries = { ");
 
         foreach (var x in cccAndQcTableEntries)
             writer.Write("0x{0:X14}, ", x);

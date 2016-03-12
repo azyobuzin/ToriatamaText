@@ -1,20 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Runtime.CompilerServices;
 
 namespace ToriatamaText.UnicodeNormalization
 {
     static partial class Tables
     {
-        private const uint CccAndQcTableMask = CccAndQcTableCapacity - 1;
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool LookupCccAndQcTable(uint key)
         {
-            var i = CccAndQcTableBuckets[key & CccAndQcTableMask];
+            var i = CccAndQcTableBuckets[key % CccAndQcTableCapacity];
             while (i != -1)
             {
                 var entry = CccAndQcTableEntries[i];
@@ -28,7 +21,7 @@ namespace ToriatamaText.UnicodeNormalization
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool LookupCccAndQcTable(uint key, out int ccc)
         {
-            var i = CccAndQcTableBuckets[key & CccAndQcTableMask];
+            var i = CccAndQcTableBuckets[key % CccAndQcTableCapacity];
             while (i != -1)
             {
                 var entry = CccAndQcTableEntries[i];
@@ -48,6 +41,21 @@ namespace ToriatamaText.UnicodeNormalization
             int v;
             LookupCccAndQcTable(code, out v);
             return v;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        /// <returns>エントリーのインデックス</returns>
+        public static int LookupDecompositionTable(uint key)
+        {
+            int i = DecompositionTableBuckets[key % DecompositionTableCapacity];
+            while (i != -1)
+            {
+                var entryKey = DecompositionTableEntries[i];
+                if (entryKey == key)
+                    return i + 2;
+                i = (int)DecompositionTableEntries[i + 1];
+            }
+            return -1;
         }
     }
 }
