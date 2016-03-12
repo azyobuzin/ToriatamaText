@@ -52,6 +52,7 @@
     <Compile Include="InternalExtractors\Utils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UnicodeNormalization\NewSuperNfc.cs" />
+    <Compile Include="UnicodeNormalization\Tables.cs" />
     <Compile Include="UnicodeNormalization\Tables.g.cs" />
     <Compile Include="Validator.cs" />
   </ItemGroup>

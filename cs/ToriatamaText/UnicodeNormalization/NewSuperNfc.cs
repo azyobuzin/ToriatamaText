@@ -62,36 +62,57 @@ namespace ToriatamaText.UnicodeNormalization
 
         // char.IsHighSurrogate と使い分けると速度が変わってる（ような気がする）
 
-        private static bool IsHighSurrogate(int code)
+        private static bool IsHighSurrogate(uint code)
         {
             return code >= 0xD800 && code <= 0xDBFF;
         }
 
-        private static bool IsLowSurrogate(int code)
+        private static bool IsLowSurrogate(uint code)
         {
             return code >= 0xDC00 && code <= 0xDFFF;
         }
 
-        private static int ToCodePoint(int hi, int lo)
-        {
-            return ((hi - 0xD800) * 0x400) + (lo - 0xDC00) + 0x10000;
-        }
+        //private static uint ToCodePoint(uint hi, uint lo)
+        //{
+        //    return ((hi - 0xD800) * 0x400) + (lo - 0xDC00) + 0x10000;
+        //}
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)] // 効果大
-        private static int ToCodePoint(string s, int index, out bool isSurrogatePair)
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)] // 効果大
+        //private static uint ToCodePoint(string s, int index, out bool isSurrogatePair)
+        //{
+        //    uint hi = s[index];
+        //    // 下位サロゲート用の変数をつくると低速化する
+        //    isSurrogatePair = IsHighSurrogate(hi) && index + 1 < s.Length && IsLowSurrogate(s[index + 1]);
+        //    return isSurrogatePair ? ToCodePoint(hi, s[index + 1]) : hi;
+        //}
+
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //private static uint ToCodePoint(char[] c, int index, out bool isSurrogatePair)
+        //{
+        //    uint hi = c[index];
+        //    isSurrogatePair = IsHighSurrogate(hi) && index + 1 < c.Length && IsLowSurrogate(c[index + 1]);
+        //    return isSurrogatePair ? ToCodePoint(hi, c[index + 1]) : hi;
+        //}
+
+        private static uint ToUtf16Int(uint hi, uint lo)
         {
-            int hi = s[index];
-            // 下位サロゲート用の変数をつくると低速化する
-            isSurrogatePair = IsHighSurrogate(hi) && index + 1 < s.Length && IsLowSurrogate(s[index + 1]);
-            return isSurrogatePair ? ToCodePoint(hi, s[index + 1]) : hi;
+            return hi << 16 | lo;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int ToCodePoint(char[] c, int index, out bool isSurrogatePair)
+        private static uint ToUtf16Int(string s, int index, out bool isSurrogatePair)
         {
-            int hi = c[index];
+            uint hi = s[index];
+            isSurrogatePair = IsHighSurrogate(hi) && index + 1 < s.Length && IsLowSurrogate(s[index + 1]);
+            return isSurrogatePair ? ToUtf16Int(hi, s[index + 1]) : hi;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static uint ToUtf16Int(char[] c, int index, out bool isSurrogatePair)
+        {
+            uint hi = c[index];
             isSurrogatePair = IsHighSurrogate(hi) && index + 1 < c.Length && IsLowSurrogate(c[index + 1]);
-            return isSurrogatePair ? ToCodePoint(hi, c[index + 1]) : hi;
+            return isSurrogatePair ? ToUtf16Int(hi, c[index + 1]) : hi;
         }
 
         private static int IndexOfLastNormalizedChar(string s, int startIndex, out bool isFirstCharToNormalizeSurrogatePair)
@@ -100,11 +121,11 @@ namespace ToriatamaText.UnicodeNormalization
             while (i < s.Length)
             {
                 bool isSurrogatePair;
-                var x = ToCodePoint(s, i, out isSurrogatePair);
+                var x = ToUtf16Int(s, i, out isSurrogatePair);
 
                 // CccAndQcTable にキーが存在する
                 // → CCC が 0 ではない、または NFC_QC が YES ではない
-                if (CccAndQcTable.ContainsKey(x))
+                if (LookupCccAndQcTable(x))
                 {
                     if (i > 0)
                     {
@@ -142,8 +163,8 @@ namespace ToriatamaText.UnicodeNormalization
             while (i < s.Length)
             {
                 bool isSurrogatePair;
-                var x = ToCodePoint(s, i, out isSurrogatePair);
-                if (!CccAndQcTable.ContainsKey(x))
+                var x = ToUtf16Int(s, i, out isSurrogatePair);
+                if (!LookupCccAndQcTable(x))
                     break;
                 i += isSurrogatePair ? 2 : 1;
             }
@@ -156,7 +177,7 @@ namespace ToriatamaText.UnicodeNormalization
             while (i < endIndex)
             {
                 bool isSurrogatePair;
-                var x = ToCodePoint(s, i, out isSurrogatePair);
+                var x = ToUtf16Int(s, i, out isSurrogatePair);
 
                 DecompCore(x, ref dest);
 
@@ -164,7 +185,7 @@ namespace ToriatamaText.UnicodeNormalization
             }
         }
 
-        private static void DecompCore(int code, ref MiniList<char> result)
+        private static void DecompCore(uint code, ref MiniList<char> result)
         {
             var SIndex = code - SBase;
             if (SIndex >= 0 && SIndex < SCount)
@@ -183,9 +204,9 @@ namespace ToriatamaText.UnicodeNormalization
                 ulong v;
                 if (DecompositionTable.TryGetValue(code, out v))
                 {
-                    DecompCore((int)(v >> 32), ref result);
+                    DecompCore((uint)(v >> 32), ref result);
 
-                    var second = (int)v;
+                    var second = (uint)v;
                     if (second != 0)
                         DecompCore(second, ref result);
                 }
@@ -198,20 +219,12 @@ namespace ToriatamaText.UnicodeNormalization
                     else
                     {
                         result.EnsureCapacity(2);
-                        code -= 0x10000;
-                        result.InnerArray[result.Count] = (char)(code / 0x400 + 0xD800);
-                        result.InnerArray[result.Count + 1] = (char)(code % 0x400 + 0xDC00);
+                        result.InnerArray[result.Count] = (char)(code >> 16);
+                        result.InnerArray[result.Count + 1] = (char)(code & char.MaxValue);
                         result.Count += 2;
                     }
                 }
             }
-        }
-
-        private static int GetCanonicalCombiningClass(int code)
-        {
-            byte v;
-            CccAndQcTable.TryGetValue(code, out v);
-            return v;
         }
 
         private static void ReorderInRange(ref MiniList<char> list, int startIndex)
@@ -228,7 +241,7 @@ namespace ToriatamaText.UnicodeNormalization
                 var lo = '\0';
                 var isSurrogatePair = IsHighSurrogate(hi) && startIndex + i + 1 < list.Count
                     && char.IsLowSurrogate(lo = list[startIndex + i + 1]);
-                var code = isSurrogatePair ? ToCodePoint(hi, lo) : hi;
+                var code = isSurrogatePair ? ToUtf16Int(hi, lo) : hi;
 
                 var ccc = GetCanonicalCombiningClass(code);
                 cccCache[i] = ccc;
@@ -303,7 +316,7 @@ namespace ToriatamaText.UnicodeNormalization
         private static void ComposeInRange(ref MiniList<char> list, int startIndex)
         {
             bool isLastSurrogatePair;
-            int last = ToCodePoint(list.InnerArray, startIndex, out isLastSurrogatePair);
+            uint last = ToUtf16Int(list.InnerArray, startIndex, out isLastSurrogatePair);
             var starterIndex = startIndex;
             var starter = ((ulong)last) << 32;
             var isStarterSurrogatePair = isLastSurrogatePair;
@@ -317,10 +330,10 @@ namespace ToriatamaText.UnicodeNormalization
                 var lo = '\0';
                 var isSurrogatePair = IsHighSurrogate(hi)
                     && i + 1 < list.Count && char.IsLowSurrogate(lo = list[i + 1]);
-                int c;
+                uint c;
                 if (isSurrogatePair)
                 {
-                    c = ToCodePoint(hi, lo);
+                    c = ToUtf16Int(hi, lo);
                     i += 2;
                 }
                 else
@@ -372,8 +385,8 @@ namespace ToriatamaText.UnicodeNormalization
                     continue;
                 }
 
-                var key = starter | (ulong)c;
-                int composed;
+                var key = starter | c;
+                uint composed;
                 if ((ccc != 0 || (ccc == 0 && lastCcc == 0)) && CompositionTable.TryGetValue(key, out composed))
                 {
                     if (composed <= char.MaxValue)
@@ -391,10 +404,6 @@ namespace ToriatamaText.UnicodeNormalization
                     }
                     else
                     {
-                        var tmp = composed - 0x10000;
-                        var composedHi = (char)(tmp / 0x400 + 0xD800);
-                        var composedLo = (char)(tmp % 0x400 + 0xDC00);
-
                         if (!isStarterSurrogatePair)
                         {
                             // 下位サロゲートを入れるスペースをつくる
@@ -405,8 +414,8 @@ namespace ToriatamaText.UnicodeNormalization
                             insertIndex++;
                         }
 
-                        list[starterIndex] = composedHi;
-                        list[starterIndex + 1] = composedLo;
+                        list[starterIndex] = (char)(composed >> 16);
+                        list[starterIndex + 1] = (char)(composed & char.MaxValue);
                         isStarterSurrogatePair = true;
                     }
 

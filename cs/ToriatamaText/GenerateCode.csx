@@ -87,6 +87,12 @@ void ForEachCodePoint(string range, Action<int> action)
     }
 }
 
+uint ToUtf16(int code)
+{
+    var s = char.ConvertFromUtf32(code);
+    return s.Length == 1 ? s[0] : ((uint)s[0]) << 16 | s[1];
+}
+
 void GenerateUnicodeNormalizationTables()
 {
     Console.WriteLine(nameof(GenerateUnicodeNormalizationTables));
@@ -140,12 +146,12 @@ void GenerateUnicodeNormalizationTables()
     foreach (var x in data) dataDic.Add(x.Code, x);
 
     // Value: [マッピング1文字目(4bytes)][マッピング2文字目(4bytes)]
-    var decompTableItems = new List<KeyValuePair<int, ulong>>();
+    var decompTableItems = new List<KeyValuePair<uint, ulong>>();
 
     // Key: [1文字目(4bytes)][2文字目(4bytes)]
-    var compTableItems = new List<KeyValuePair<ulong, int>>();
+    var compTableItems = new List<KeyValuePair<ulong, uint>>();
 
-    var cccAndQcTableItems = new List<KeyValuePair<int, int>>();
+    var cccAndQcTableItems = new List<KeyValuePair<uint, int>>();
 
     foreach (var x in data)
     {
@@ -155,27 +161,50 @@ void GenerateUnicodeNormalizationTables()
 
         if (mapping != null)
         {
-            var value = ((ulong)ParseHex(mapping[0])) << 32;
+            var value = (ulong)ToUtf16(ParseHex(mapping[0])) << 32;
             if (mapping.Length == 2)
             {
-                value |= (ulong)ParseHex(mapping[1]);
+                value |= ToUtf16(ParseHex(mapping[1]));
 
                 if (compositionExclusions.BinarySearch(x.Code) < 0)
                 {
-                    compTableItems.Add(new KeyValuePair<ulong, int>(value, x.Code));
+                    compTableItems.Add(new KeyValuePair<ulong, uint>(value, ToUtf16(x.Code)));
                 }
             }
             else if (mapping.Length > 2)
             {
-                throw new Exception($"\\u{Convert.ToString((int)x.Code, 16)} has too many elements in the decomposition mapping.");
+                throw new Exception($"\\u{Convert.ToString(x.Code, 16)} has too many elements in the decomposition mapping.");
             }
 
-            decompTableItems.Add(new KeyValuePair<int, ulong>(x.Code, value));
+            decompTableItems.Add(new KeyValuePair<uint, ulong>(ToUtf16(x.Code), value));
         }
 
         if (x.CanonicalCombiningClass != 0 || nfcQcNorM.Contains(x.Code))
-            cccAndQcTableItems.Add(new KeyValuePair<int, int>(x.Code, x.CanonicalCombiningClass));
+            cccAndQcTableItems.Add(new KeyValuePair<uint, int>(ToUtf16(x.Code), x.CanonicalCombiningClass));
     }
+
+    var cccAndQcTableCapacity = (uint)Math.Pow(2, 10);
+    var cccAndQcTableBuckets = new int[cccAndQcTableCapacity];
+    for (var i = 0; i < cccAndQcTableCapacity; i++) cccAndQcTableBuckets[i] = -1;
+    // [value(1byte)][next(2bytes)][key(4bytes)]
+    var cccAndQcTableEntries = new ulong[cccAndQcTableItems.Count];
+    uint cccAndQcTableEntryIndex = 0;
+
+    Console.WriteLine("CccAndQcTable");
+    foreach (var group in cccAndQcTableItems.GroupBy(x => x.Key & (cccAndQcTableCapacity - 1)))
+    {
+        Console.Write(group.Count() + " ");
+        ulong next = ushort.MaxValue;
+        foreach (var x in group)
+        {
+            cccAndQcTableEntries[cccAndQcTableEntryIndex] = ((ulong)x.Value) << 48 | next << 32 | ((ulong)x.Key);
+            next = cccAndQcTableEntryIndex++;
+        }
+        cccAndQcTableBuckets[group.Key] = (int)next;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine(cccAndQcTableBuckets.Count(x => x == -1));
 
     using (var writer = new StreamWriter(Path.Combine("UnicodeNormalization", "Tables.g.cs")))
     {
@@ -183,9 +212,9 @@ void GenerateUnicodeNormalizationTables()
         writer.WriteLine();
         writer.WriteLine("namespace ToriatamaText.UnicodeNormalization");
         writer.WriteLine('{');
-        writer.WriteLine("    static class Tables");
+        writer.WriteLine("    partial class Tables");
         writer.WriteLine("    {");
-        writer.WriteLine("        public static Dictionary<int, ulong> DecompositionTable {{ get; }} = new Dictionary<int, ulong>({0})", decompTableItems.Count);
+        writer.WriteLine("        public static Dictionary<uint, ulong> DecompositionTable {{ get; }} = new Dictionary<uint, ulong>({0})", decompTableItems.Count);
         writer.WriteLine("        {");
 
         foreach (var x in decompTableItems)
@@ -193,21 +222,29 @@ void GenerateUnicodeNormalizationTables()
 
         writer.WriteLine("        };");
         writer.WriteLine();
-        writer.WriteLine("        public static Dictionary<ulong, int> CompositionTable {{ get; }} = new Dictionary<ulong, int>({0})", compTableItems.Count);
+        writer.WriteLine("        public static Dictionary<ulong, uint> CompositionTable {{ get; }} = new Dictionary<ulong, uint>({0})", compTableItems.Count);
         writer.WriteLine("        {");
 
         foreach (var x in compTableItems)
-            writer.WriteLine("            [0x{0:X13}] = 0x{1:X4},", x.Key, x.Value);
+            writer.WriteLine("            [0x{0:X12}] = 0x{1:X4},", x.Key, x.Value);
 
         writer.WriteLine("        };");
         writer.WriteLine();
-        writer.WriteLine("        public static Dictionary<int, byte> CccAndQcTable {{ get; }} = new Dictionary<int, byte>({0})", cccAndQcTableItems.Count);
-        writer.WriteLine("        {");
+        writer.WriteLine("        public const int CccAndQcTableCapacity = {0};", cccAndQcTableCapacity);
+        writer.WriteLine();
+        writer.Write("        public static short[] CccAndQcTableBuckets { get; } = { ");
 
-        foreach (var x in cccAndQcTableItems)
-            writer.WriteLine("            [0x{0:X4}] = {1},", x.Key, x.Value);
+        foreach (var x in cccAndQcTableBuckets)
+            writer.Write(x.ToString(CultureInfo.InvariantCulture) + ", ");
 
-        writer.WriteLine("        };");
+        writer.WriteLine("};");
+        writer.WriteLine();
+        writer.Write("        public static ulong[] CccAndQcTableEntries { get; } = { ");
+
+        foreach (var x in cccAndQcTableEntries)
+            writer.Write("0x{0:X14}, ", x);
+
+        writer.WriteLine("};");
         writer.WriteLine();
         writer.WriteLine("    }");
         writer.WriteLine("}");
