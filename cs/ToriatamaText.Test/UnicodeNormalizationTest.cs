@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using ToriatamaText.InternalExtractors;
+using ToriatamaText.Collections;
 using ToriatamaText.UnicodeNormalization;
 
 namespace ToriatamaText.Test

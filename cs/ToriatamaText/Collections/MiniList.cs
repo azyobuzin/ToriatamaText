@@ -1,6 +1,7 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 
-namespace ToriatamaText.InternalExtractors
+namespace ToriatamaText.Collections
 {
     struct MiniList<T>
     {
@@ -26,6 +27,7 @@ namespace ToriatamaText.InternalExtractors
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnsureCapacity(int additionalCapacity)
         {
             var minCapacity = this.Count + additionalCapacity;
@@ -41,6 +43,7 @@ namespace ToriatamaText.InternalExtractors
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(T value)
         {
             this.EnsureCapacity(1);

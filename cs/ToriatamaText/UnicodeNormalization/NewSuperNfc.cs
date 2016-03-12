@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using ToriatamaText.InternalExtractors;
+using ToriatamaText.Collections;
 
 namespace ToriatamaText.UnicodeNormalization
 {
