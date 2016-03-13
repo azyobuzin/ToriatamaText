@@ -70,28 +70,6 @@ namespace ToriatamaText.UnicodeNormalization
             return code >= 0xDC00 && code <= 0xDFFF;
         }
 
-        //private static uint ToCodePoint(uint hi, uint lo)
-        //{
-        //    return ((hi - 0xD800) * 0x400) + (lo - 0xDC00) + 0x10000;
-        //}
-
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)] // 効果大
-        //private static uint ToCodePoint(string s, int index, out bool isSurrogatePair)
-        //{
-        //    uint hi = s[index];
-        //    // 下位サロゲート用の変数をつくると低速化する
-        //    isSurrogatePair = IsHighSurrogate(hi) && index + 1 < s.Length && IsLowSurrogate(s[index + 1]);
-        //    return isSurrogatePair ? ToCodePoint(hi, s[index + 1]) : hi;
-        //}
-
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //private static uint ToCodePoint(char[] c, int index, out bool isSurrogatePair)
-        //{
-        //    uint hi = c[index];
-        //    isSurrogatePair = IsHighSurrogate(hi) && index + 1 < c.Length && IsLowSurrogate(c[index + 1]);
-        //    return isSurrogatePair ? ToCodePoint(hi, c[index + 1]) : hi;
-        //}
-
         private static uint ToUtf16Int(uint hi, uint lo)
         {
             return hi << 16 | lo;
@@ -386,7 +364,7 @@ namespace ToriatamaText.UnicodeNormalization
 
                 var key = starter | c;
                 uint composed;
-                if ((ccc != 0 || (ccc == 0 && lastCcc == 0)) && CompositionTable.TryGetValue(key, out composed))
+                if ((ccc != 0 || (ccc == 0 && lastCcc == 0)) && LookupCompositionTable(key, out composed))
                 {
                     if (composed <= char.MaxValue)
                     {

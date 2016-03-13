@@ -50,12 +50,29 @@ namespace ToriatamaText.UnicodeNormalization
             int i = DecompositionTableBuckets[key % DecompositionTableCapacity];
             while (i != -1)
             {
-                var entryKey = DecompositionTableEntries[i];
-                if (entryKey == key)
+                if (DecompositionTableEntries[i] == key)
                     return i + 2;
                 i = (int)DecompositionTableEntries[i + 1];
             }
             return -1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool LookupCompositionTable(ulong key, out uint value)
+        {
+            int i = CompositionTableBuckets[((uint)(key ^ (key >> 20))) % CompositionTableCapacity];
+            while (i != -1)
+            {
+                var entryValue = CompositionTableEntries[i + 1];
+                if (CompositionTableEntries[i] == key)
+                {
+                    value = (uint)(entryValue >> 32);
+                    return true;
+                }
+                i = (int)entryValue;
+            }
+            value = 0;
+            return false;
         }
     }
 }

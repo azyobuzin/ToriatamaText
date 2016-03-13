@@ -102,6 +102,11 @@ uint ToUtf16(int code)
     return s.Length == 1 ? s[0] : ((uint)s[0]) << 16 | s[1];
 }
 
+uint CompTableKeyHash(ulong key)
+{
+    return (uint)(key ^ (key >> 20));
+}
+
 void GenerateUnicodeNormalizationTables()
 {
     Console.WriteLine(nameof(GenerateUnicodeNormalizationTables));
@@ -238,6 +243,40 @@ void GenerateUnicodeNormalizationTables()
     Console.WriteLine();
     Console.WriteLine(decompTableBuckets.LongCount(x => x == -1));
 
+    uint compTableCapacity = 1103;
+    var compTableBuckets = new int[compTableCapacity];
+    for (uint i = 0; i < compTableCapacity; i++) compTableBuckets[i] = -1;
+    // 要素1: キー
+    // 要素2: [値(4bytes)][次のエントリーのキーのインデックス(4bytes)]
+    var compTableEntries = new ulong[compTableItems.Count * 2];
+    var compTableEntryIndex = 0;
+
+    Console.WriteLine("CompositionTable");
+    foreach (var group in compTableItems.GroupBy(x => CompTableKeyHash(x.Key) % compTableCapacity))
+    {
+        //var count = group.Count();
+        //if (count > 5)
+        //{
+        //    Console.WriteLine("{0:X}: {1:D}件", group.Key, count);
+        //    foreach (var x in group)
+        //        Console.WriteLine("{0:X11}({1:X4}) -> {2:X4}", x.Key, CompTableKeyHash(x.Key), x.Value);
+        //}
+        Console.Write(group.Count() + " ");
+
+        var next = -1;
+        foreach (var x in group)
+        {
+            compTableEntries[compTableEntryIndex] = x.Key;
+            compTableEntries[compTableEntryIndex + 1] = ((ulong)x.Value) << 32 | (ulong)(uint)next;
+            next = compTableEntryIndex;
+            compTableEntryIndex += 2;
+        }
+        compTableBuckets[group.Key] = next;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine(compTableBuckets.LongCount(x => x == -1));
+
     uint cccAndQcTableCapacity = 1024;
     var cccAndQcTableBuckets = new int[cccAndQcTableCapacity];
     for (uint i = 0; i < cccAndQcTableCapacity; i++) cccAndQcTableBuckets[i] = -1;
@@ -263,8 +302,6 @@ void GenerateUnicodeNormalizationTables()
 
     using (var writer = new StreamWriter(Path.Combine("UnicodeNormalization", "Tables.g.cs")))
     {
-        writer.WriteLine("using System.Collections.Generic;");
-        writer.WriteLine();
         writer.WriteLine("namespace ToriatamaText.UnicodeNormalization");
         writer.WriteLine('{');
         writer.WriteLine("    partial class Tables");
@@ -286,13 +323,22 @@ void GenerateUnicodeNormalizationTables()
 
         writer.WriteLine("};");
         writer.WriteLine();
-        writer.WriteLine("        public static Dictionary<ulong, uint> CompositionTable {{ get; }} = new Dictionary<ulong, uint>({0:D})", compTableItems.Count);
-        writer.WriteLine("        {");
+        writer.WriteLine("        private const int CompositionTableCapacity = {0:D};", compTableCapacity);
+        writer.WriteLine();
+        writer.Write("        private static readonly short[] CompositionTableBuckets = { ");
 
-        foreach (var x in compTableItems)
-            writer.WriteLine("            [0x{0:X12}] = 0x{1:X4},", x.Key, x.Value);
+        foreach (var x in compTableBuckets)
+            writer.Write(x.ToString("D") + ", ");
 
-        writer.WriteLine("        };");
+        writer.WriteLine("};");
+        writer.WriteLine();
+        writer.WriteLine("        // Count: {0:D} * 2 = {1:D}", compTableItems.Count, compTableEntries.Length);
+        writer.Write("        public static readonly ulong[] CompositionTableEntries = { ");
+
+        foreach (var x in compTableEntries)
+            writer.Write("0x{0:X12}, ", x);
+
+        writer.WriteLine("};");
         writer.WriteLine();
         writer.WriteLine("        private const int CccAndQcTableCapacity = {0:D};", cccAndQcTableCapacity);
         writer.WriteLine();
@@ -310,7 +356,6 @@ void GenerateUnicodeNormalizationTables()
             writer.Write("0x{0:X14}, ", x);
 
         writer.WriteLine("};");
-        writer.WriteLine();
         writer.WriteLine("    }");
         writer.WriteLine("}");
     }
