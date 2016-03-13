@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
+using ToriatamaText.Test.ConformanceYaml;
 
 namespace ToriatamaText.Test
 {
@@ -13,12 +10,13 @@ namespace ToriatamaText.Test
         public static void Run()
         {
             var extractor = new Extractor();
-            var tests = LoadTests();
+            var extractTests = ExtractYaml.Load();
+            var validateTests = ValidateYaml.Load();
 
             Console.WriteLine("=========================");
             Console.WriteLine("Mentions");
             Console.WriteLine("=========================");
-            foreach (var test in tests.Mentions)
+            foreach (var test in extractTests.Mentions)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractMentionedScreenNames(test.Text)
@@ -33,7 +31,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("MentionsWithIndices");
             Console.WriteLine("=========================");
-            foreach (var test in tests.MentionsWithIndices)
+            foreach (var test in extractTests.MentionsWithIndices)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractMentionedScreenNames(test.Text)
@@ -52,7 +50,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("MentionsOrListsWithIndices");
             Console.WriteLine("=========================");
-            foreach (var test in tests.MentionsOrListsWithIndices)
+            foreach (var test in extractTests.MentionsOrListsWithIndices)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractMentionsOrLists(test.Text)
@@ -76,7 +74,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("Replies");
             Console.WriteLine("=========================");
-            foreach (var test in tests.Replies)
+            foreach (var test in extractTests.Replies)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractReplyScreenName(test.Text);
@@ -90,7 +88,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("Urls");
             Console.WriteLine("=========================");
-            foreach (var test in tests.Urls)
+            foreach (var test in extractTests.Urls)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractUrls(test.Text)
@@ -105,7 +103,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("UrlsWithIndices");
             Console.WriteLine("=========================");
-            foreach (var test in tests.UrlsWithIndices)
+            foreach (var test in extractTests.UrlsWithIndices)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractUrls(test.Text)
@@ -124,7 +122,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("Hashtags");
             Console.WriteLine("=========================");
-            foreach (var test in tests.Hashtags)
+            foreach (var test in extractTests.Hashtags)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractHashtags(test.Text, true)
@@ -139,7 +137,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("HashtagsWithIndices");
             Console.WriteLine("=========================");
-            foreach (var test in tests.HashtagsWithIndices)
+            foreach (var test in extractTests.HashtagsWithIndices)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractHashtags(test.Text, true)
@@ -158,7 +156,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("Cashtags");
             Console.WriteLine("=========================");
-            foreach (var test in tests.Cashtags)
+            foreach (var test in extractTests.Cashtags)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractCashtags(test.Text)
@@ -173,7 +171,7 @@ namespace ToriatamaText.Test
             Console.WriteLine("=========================");
             Console.WriteLine("CashtagsWithIndices");
             Console.WriteLine("=========================");
-            foreach (var test in tests.CashtagsWithIndices)
+            foreach (var test in extractTests.CashtagsWithIndices)
             {
                 Console.WriteLine(test.Description);
                 var result = extractor.ExtractCashtags(test.Text)
@@ -187,32 +185,63 @@ namespace ToriatamaText.Test
                     Debugger.Break();
                 }
             }
-        }
 
-        private const string testFile = "extract.yml";
+            Console.WriteLine();
+            Console.WriteLine("=========================");
+            Console.WriteLine("Validation");
+            Console.WriteLine("=========================");
 
-        static void DownloadTests()
-        {
-            Console.WriteLine("Downloading extract.yml");
-            new WebClient().DownloadFile(
-                "https://raw.githubusercontent.com/twitter/twitter-text/master/conformance/extract.yml",
-                testFile);
-        }
-
-        static ExtractTests LoadTests()
-        {
-            if (!File.Exists(testFile))
-                DownloadTests();
-
-            ExtractYaml testYaml;
-
-            using (var sr = new StreamReader(testFile))
+            foreach (var test in validateTests.Usernames)
             {
-                var deserializer = new Deserializer(namingConvention: new UnderscoredNamingConvention(), ignoreUnmatched: true);
-                testYaml = deserializer.Deserialize<ExtractYaml>(sr);
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractMentionedScreenNames(test.Text);
+                if ((result.Count == 1 && result[0].Length == test.Text.Length) != test.Expected)
+                    Debugger.Break();
             }
 
-            return testYaml.Tests;
+            foreach (var test in validateTests.Lists)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractMentionsOrLists(test.Text)
+                    .FindAll(x => test.Text.Substring(x.StartIndex, x.Length).IndexOf('/') >= 0);
+                if ((result.Count == 1 && result[0].Length == test.Text.Length) != test.Expected)
+                    Debugger.Break();
+            }
+
+            foreach (var test in validateTests.Hashtags)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractHashtags(test.Text, false);
+                if ((result.Count == 1 && result[0].Length == test.Text.Length) != test.Expected)
+                    Debugger.Break();
+            }
+
+            foreach (var test in validateTests.Urls)
+            {
+                switch (test.Description)
+                {
+                    case "Valid url: port and userinfo":
+                    case "Valid url: ipv4":
+                    case "Valid url: ipv6":
+                        continue; // ツイートしても無効だしふざけんな💢💢💢💢
+                    case "Valid url: sub delims and question marks":
+                    case "Valid url: trailing hyphen":
+                        continue; // 最後の1文字は含まれねーよクソが
+                }
+
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractUrls(test.Text);
+                if ((result.Count == 1 && result[0].Length == test.Text.Length) != test.Expected)
+                    Debugger.Break();
+            }
+
+            foreach (var test in validateTests.UrlsWithoutProtocol)
+            {
+                Console.WriteLine(test.Description);
+                var result = extractor.ExtractUrls(test.Text);
+                if ((result.Count == 1 && result[0].Length == test.Text.Length) != test.Expected)
+                    Debugger.Break();
+            }
         }
     }
 }

@@ -177,8 +177,11 @@ namespace ToriatamaText.InternalExtractors
             // www.(←)twitter.com/
             // twitter.(←)com/
 
-            // . の前が - や _ なら終了
+            // . の前後が - や _ なら終了
             var x = text[dotIndex - 1];
+            if (x == '-' || x == '_')
+                goto GoToNextToDot;
+            x = text[dotIndex + 1];
             if (x == '-' || x == '_')
                 goto GoToNextToDot;
 

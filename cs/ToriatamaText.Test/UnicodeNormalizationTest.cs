@@ -44,7 +44,13 @@ namespace ToriatamaText.Test
             }
 
             var stopwatch = new Stopwatch();
-            const int ntimes = 300;
+            const int ntimes =
+#if DEBUG
+                100 // Debug ビルドだと遅すぎて待ってるのだるい
+#else
+                300
+#endif
+                ;
 
             stopwatch.Start();
             for (var i = 0; i < ntimes; i++)
@@ -75,16 +81,6 @@ namespace ToriatamaText.Test
             Console.WriteLine("String.Normalize: {0}", stopwatch.Elapsed);
         }
 
-        private const string testFile = "NormalizationTest.txt";
-
-        static void DownloadTests()
-        {
-            Console.WriteLine("Downloading NormalizationTest.txt");
-            new WebClient().DownloadFile(
-                "http://www.unicode.org/Public/UCD/latest/ucd/NormalizationTest.txt",
-                testFile);
-        }
-
         static string ToString(MiniList<int> miniList)
         {
             var sb = new StringBuilder(miniList.Count);
@@ -105,6 +101,16 @@ namespace ToriatamaText.Test
         static string ToString(MiniList<char> miniList)
         {
             return new string(miniList.InnerArray, 0, miniList.Count);
+        }
+
+        private const string testFile = "NormalizationTest.txt";
+
+        static void DownloadTests()
+        {
+            Console.WriteLine("Downloading NormalizationTest.txt");
+            new WebClient().DownloadFile(
+                "http://www.unicode.org/Public/UCD/latest/ucd/NormalizationTest.txt",
+                testFile);
         }
 
         static string[][] LoadTests()

@@ -11,6 +11,11 @@ namespace ToriatamaText.Test
             ExtractorTest.Run();
 
             Console.WriteLine();
+            WriteTitle(nameof(ValidatorTest));
+            Console.WriteLine();
+            ValidatorTest.Run();
+
+            Console.WriteLine();
             WriteTitle(nameof(UnicodeNormalizationTest));
             Console.WriteLine();
             UnicodeNormalizationTest.Run();

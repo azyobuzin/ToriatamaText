@@ -1,14 +1,14 @@
-﻿using System.Linq;
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Net;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 #pragma warning disable CS0659 // 型は Object.Equals(object o) をオーバーライドしますが、Object.GetHashCode() をオーバーライドしません
 
-namespace ToriatamaText.Test
+namespace ToriatamaText.Test.ConformanceYaml
 {
-    class ExtractYaml
-    {
-        public ExtractTests Tests { get; set; }
-    }
-
     class ExtractTests
     {
         public TestItem<string[]>[] Mentions { get; set; }
@@ -21,13 +21,6 @@ namespace ToriatamaText.Test
         public TestItem<HashtagsWithIndicesExpected[]>[] HashtagsWithIndices { get; set; }
         public TestItem<string[]>[] Cashtags { get; set; }
         public TestItem<CashtagsWithIndicesExpected[]>[] CashtagsWithIndices { get; set; }
-    }
-
-    class TestItem<TExpected>
-    {
-        public string Description { get; set; }
-        public string Text { get; set; }
-        public TExpected Expected { get; set; }
     }
 
     class MentionsWithIndicesExpected
@@ -93,6 +86,28 @@ namespace ToriatamaText.Test
             var x = obj as CashtagsWithIndicesExpected;
             if (x == null) return false;
             return this.Cashtag == x.Cashtag && this.Indices.SequenceEqual(x.Indices);
+        }
+    }
+
+    static class ExtractYaml
+    {
+        private const string testFile = "extract.yml";
+
+        public static ExtractTests Load()
+        {
+            if (!File.Exists(testFile))
+            {
+                Console.WriteLine("Downloading extract.yml");
+                new WebClient().DownloadFile(
+                    "https://raw.githubusercontent.com/twitter/twitter-text/master/conformance/extract.yml",
+                    testFile);
+            }
+
+            using (var sr = new StreamReader(testFile))
+            {
+                var deserializer = new Deserializer(namingConvention: new UnderscoredNamingConvention(), ignoreUnmatched: true);
+                return deserializer.Deserialize<YamlRoot<ExtractTests>>(sr).Tests;
+            }
         }
     }
 }

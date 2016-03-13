@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using ToriatamaText.Collections;
+using ToriatamaText.UnicodeNormalization;
 
 namespace ToriatamaText
 {
@@ -26,7 +24,34 @@ namespace ToriatamaText
 
         public int GetTweetLength(string text)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrEmpty(text)) return 0;
+
+            MiniList<char> normalized;
+            if (NewSuperNfc.Compose(text, out normalized))
+                text = new string(normalized.InnerArray, 0, normalized.Count); // ポインタ使わせろ！！
+
+            var length = text.Length;
+
+            foreach (var x in this._extractor.ExtractUrls(text))
+                length += this.ShortUrlLength - x.Length;
+
+            // サロゲートペアを削除
+            var end = text.Length - 1;
+            for (var i = 0; i < end;)
+            {
+                // char.IsSurrogatePair はインライン化されないじゃん？
+                if (char.IsHighSurrogate(text[i]) && char.IsLowSurrogate(text[i + 1]))
+                {
+                    length--;
+                    i += 2;
+                }
+                else
+                {
+                    i++;
+                }
+            }
+
+            return length;
         }
 
         private static readonly char[] InvalidTweetChars =
