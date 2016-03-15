@@ -197,7 +197,7 @@ namespace ToriatamaText.UnicodeNormalization
                     {
                         result.EnsureCapacity(2);
                         result.InnerArray[result.Count] = (char)(code >> 16);
-                        result.InnerArray[result.Count + 1] = (char)(code & char.MaxValue);
+                        result.InnerArray[result.Count + 1] = (char)code;
                         result.Count += 2;
                     }
                 }
@@ -208,9 +208,6 @@ namespace ToriatamaText.UnicodeNormalization
         {
             var rangeLen = list.Count - startIndex;
 
-            var cccCache = new int[rangeLen];
-            const int lowSurrogateCcc = 255;
-
             var i = 0;
             while (i < rangeLen)
             {
@@ -218,22 +215,17 @@ namespace ToriatamaText.UnicodeNormalization
                 var lo = '\0';
                 var isSurrogatePair = IsHighSurrogate(hi) && startIndex + i + 1 < list.Count
                     && char.IsLowSurrogate(lo = list[startIndex + i + 1]);
-                var code = isSurrogatePair ? ToUtf16Int(hi, lo) : hi;
-
-                var ccc = GetCanonicalCombiningClass(code);
-                cccCache[i] = ccc;
-                if (isSurrogatePair)
-                    cccCache[i + 1] = lowSurrogateCcc;
+                var ccc = GetCanonicalCombiningClass(isSurrogatePair ? ToUtf16Int(hi, lo) : hi);
 
                 if (ccc != 0)
                 {
                     var j = i - 1;
                     while (j >= 0)
                     {
-                        var prevCcc = cccCache[j];
-                        var isPrevSurrogatePair = prevCcc == lowSurrogateCcc;
-                        if (isPrevSurrogatePair)
-                            prevCcc = cccCache[j - 1];
+                        uint prev = list[startIndex + j];
+                        var isPrevSurrogatePair = IsLowSurrogate(prev) && !(startIndex == 0 && j == 0)
+                            && IsHighSurrogate(list[startIndex + j - 1]);
+                        var prevCcc = GetCanonicalCombiningClass(isPrevSurrogatePair ? ToUtf16Int(list[startIndex + j - 1], prev) : prev);
                         if (prevCcc == 1 || prevCcc <= ccc) break;
 
                         var jIndex = startIndex + j;
@@ -246,8 +238,6 @@ namespace ToriatamaText.UnicodeNormalization
                                 list[jIndex + 2] = list[jIndex];
                                 list[jIndex - 1] = hi;
                                 list[jIndex] = lo;
-                                cccCache[j + 1] = prevCcc;
-                                cccCache[j - 1] = ccc;
                             }
                             else
                             {
@@ -255,9 +245,6 @@ namespace ToriatamaText.UnicodeNormalization
                                 list[jIndex + 2] = list[jIndex];
                                 list[jIndex] = hi;
                                 list[jIndex + 1] = lo;
-                                cccCache[j + 2] = prevCcc;
-                                cccCache[j] = ccc;
-                                cccCache[j + 1] = lowSurrogateCcc;
                             }
                         }
                         else
@@ -268,17 +255,12 @@ namespace ToriatamaText.UnicodeNormalization
                                 list[jIndex + 1] = list[jIndex];
                                 list[jIndex] = list[jIndex - 1];
                                 list[jIndex - 1] = hi;
-                                cccCache[j + 1] = lowSurrogateCcc;
-                                cccCache[j] = prevCcc;
-                                cccCache[j - 1] = ccc;
                             }
                             else
                             {
                                 // どっちもサロゲートペアではない
                                 list[jIndex + 1] = list[jIndex];
                                 list[jIndex] = hi;
-                                cccCache[j + 1] = prevCcc;
-                                cccCache[j] = ccc;
                             }
                         }
 
@@ -304,13 +286,12 @@ namespace ToriatamaText.UnicodeNormalization
             while (i < list.Count)
             {
                 var hi = list[i];
-                var lo = '\0';
                 var isSurrogatePair = IsHighSurrogate(hi)
-                    && i + 1 < list.Count && char.IsLowSurrogate(lo = list[i + 1]);
+                    && i + 1 < list.Count && char.IsLowSurrogate(list[i + 1]);
                 uint c;
                 if (isSurrogatePair)
                 {
-                    c = ToUtf16Int(hi, lo);
+                    c = ToUtf16Int(hi, list[i + 1]);
                     i += 2;
                 }
                 else
@@ -356,7 +337,7 @@ namespace ToriatamaText.UnicodeNormalization
                     // ブロック
                     list[insertIndex++] = hi;
                     if (isSurrogatePair)
-                        list[insertIndex++] = lo;
+                        list[insertIndex++] = (char)c;
                     last = c;
                     isLastSurrogatePair = isSurrogatePair;
                     continue;
@@ -409,7 +390,7 @@ namespace ToriatamaText.UnicodeNormalization
                     }
                     list[insertIndex++] = hi;
                     if (isSurrogatePair)
-                        list[insertIndex++] = lo;
+                        list[insertIndex++] = (char)c;
                 }
 
                 last = c;
