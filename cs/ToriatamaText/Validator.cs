@@ -22,13 +22,16 @@ namespace ToriatamaText
 
         public Validator() : this(new Extractor()) { }
 
-        public int GetTweetLength(string text)
+        public int GetTweetLength(string text, bool normalize = true)
         {
             if (string.IsNullOrEmpty(text)) return 0;
 
-            MiniList<char> normalized;
-            if (NewSuperNfc.Compose(text, out normalized))
-                text = new string(normalized.InnerArray, 0, normalized.Count); // ポインタ使わせろ！！
+            if (normalize)
+            {
+                MiniList<char> normalized;
+                if (NewSuperNfc.Compose(text, out normalized))
+                    text = new string(normalized.InnerArray, 0, normalized.Count); // ポインタ使わせろ！！
+            }
 
             var length = text.Length;
 
@@ -60,12 +63,12 @@ namespace ToriatamaText
             '\u202A', '\u202B', '\u202C', '\u202D', '\u202E'
         };
 
-        public bool IsValidTweet(string text)
+        public bool IsValidTweet(string text, bool normalize = true)
         {
             if (string.IsNullOrEmpty(text) || text.IndexOfAny(InvalidTweetChars) != -1)
                 return false;
 
-            return this.GetTweetLength(text) <= this.MaxTweetLength;
+            return this.GetTweetLength(text, normalize) <= this.MaxTweetLength;
         }
     }
 }
