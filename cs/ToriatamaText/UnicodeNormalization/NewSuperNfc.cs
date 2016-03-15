@@ -163,17 +163,10 @@ namespace ToriatamaText.UnicodeNormalization
 
         private static void DecompCore(uint code, ref MiniList<char> result)
         {
-            var SIndex = code - SBase;
-            if (SIndex >= 0 && SIndex < SCount)
+            if (code - SBase < SCount || code - LBase < LCount || code - VBase < VCount || code - TBase < TCount)
             {
-                // ハングル
-                var L = LBase + SIndex / NCount;
-                var V = VBase + (SIndex % NCount) / TCount;
-                var T = TBase + SIndex % TCount;
-                result.EnsureCapacity(3);
-                result.InnerArray[result.Count++] = (char)L;
-                result.InnerArray[result.Count++] = (char)V;
-                if (T != TBase) result.InnerArray[result.Count++] = (char)T;
+                // ハングルはどうせ合成するから分解しない
+                result.Add((char)code);
             }
             else
             {
@@ -207,7 +200,6 @@ namespace ToriatamaText.UnicodeNormalization
         private static void ReorderInRange(ref MiniList<char> list, int startIndex)
         {
             var rangeLen = list.Count - startIndex;
-
             var i = 0;
             while (i < rangeLen)
             {

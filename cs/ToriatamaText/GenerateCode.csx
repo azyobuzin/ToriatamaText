@@ -131,40 +131,37 @@ void GenerateUnicodeNormalizationTables()
     var compositionExclusions = new List<int>();
     var nfcQcNorM = new HashSet<int>();
 
-    using (var client = new WebClient())
+    using (var reader = new StreamReader(unicodeDataFile))
     {
-        using (var reader = new StreamReader(unicodeDataFile))
+        string line;
+        while (!string.IsNullOrEmpty(line = reader.ReadLine()))
         {
-            string line;
-            while (!string.IsNullOrEmpty(line = reader.ReadLine()))
+            var s = line.Split(';');
+            var mapping = s[5].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            data.Add(new UnicodeDataRow
+            {
+                Code = ParseHex(s[0]),
+                CanonicalCombiningClass = int.Parse(s[3], CultureInfo.InvariantCulture),
+                DecompositionMapping = mapping.Length == 0 ? null : mapping
+            });
+        }
+    }
+
+    using (var reader = new StreamReader(normPropsFile))
+    {
+        string line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            if (line.Length != 0 && line[0] != '#')
             {
                 var s = line.Split(';');
-                var mapping = s[5].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                data.Add(new UnicodeDataRow
+                if (s[1].TrimStart(null).StartsWith("Full_Composition_Exclusion", StringComparison.Ordinal))
                 {
-                    Code = ParseHex(s[0]),
-                    CanonicalCombiningClass = int.Parse(s[3], CultureInfo.InvariantCulture),
-                    DecompositionMapping = mapping.Length == 0 ? null : mapping
-                });
-            }
-        }
-
-        using (var reader = new StreamReader(normPropsFile))
-        {
-            string line;
-            while ((line = reader.ReadLine()) != null)
-            {
-                if (line.Length != 0 && line[0] != '#')
+                    ForEachCodePoint(s[0], compositionExclusions.Add);
+                }
+                else if (s[1].Trim() == "NFC_QC")
                 {
-                    var s = line.Split(';');
-                    if (s[1].TrimStart(null).StartsWith("Full_Composition_Exclusion", StringComparison.Ordinal))
-                    {
-                        ForEachCodePoint(s[0], compositionExclusions.Add);
-                    }
-                    else if (s[1].Trim() == "NFC_QC")
-                    {
-                        ForEachCodePoint(s[0], x => nfcQcNorM.Add(x));
-                    }
+                    ForEachCodePoint(s[0], x => nfcQcNorM.Add(x));
                 }
             }
         }
