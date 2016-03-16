@@ -163,9 +163,12 @@ namespace ToriatamaText.UnicodeNormalization
 
         private static void DecompCore(uint code, ref MiniList<char> result)
         {
-            if (code - SBase < SCount || code - LBase < LCount || code - VBase < VCount || code - TBase < TCount)
+            // ハングルはどうせ合成するから分解しない
+
+            // Unicode 8.0 用ハードコーディング
+            // 10000 以上離れているところとハングルをショートカット
+            if (code < 0x00C0 || (code > 0x1026 && (code < 0x1B06 || (code > 0x30FE && (code < 0xF900)))))
             {
-                // ハングルはどうせ合成するから分解しない
                 result.Add((char)code);
             }
             else
