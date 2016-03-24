@@ -202,44 +202,41 @@ namespace ToriatamaText.UnicodeNormalization
 
         private static void ReorderInRange(ref MiniList<char> list, int startIndex)
         {
-            var rangeLen = list.Count - startIndex;
-            var i = 0;
-            while (i < rangeLen)
+            var i = startIndex;
+            while (i < list.Count)
             {
-                var hi = list[startIndex + i];
+                var hi = list[i];
                 var lo = '\0';
-                var isSurrogatePair = IsHighSurrogate(hi) && startIndex + i + 1 < list.Count
-                    && char.IsLowSurrogate(lo = list[startIndex + i + 1]);
+                var isSurrogatePair = IsHighSurrogate(hi) && i + 1 < list.Count
+                    && char.IsLowSurrogate(lo = list[i + 1]);
                 var ccc = GetCanonicalCombiningClass(isSurrogatePair ? ToUtf16Int(hi, lo) : hi);
 
                 if (ccc != 0)
                 {
                     var j = i - 1;
-                    while (j >= 0)
+                    while (j >= startIndex)
                     {
-                        uint prev = list[startIndex + j];
-                        var isPrevSurrogatePair = IsLowSurrogate(prev) && !(startIndex == 0 && j == 0)
-                            && IsHighSurrogate(list[startIndex + j - 1]);
-                        var prevCcc = GetCanonicalCombiningClass(isPrevSurrogatePair ? ToUtf16Int(list[startIndex + j - 1], prev) : prev);
+                        uint prev = list[j];
+                        var isPrevSurrogatePair = IsLowSurrogate(prev) && j > 0 && IsHighSurrogate(list[j - 1]);
+                        var prevCcc = GetCanonicalCombiningClass(isPrevSurrogatePair ? ToUtf16Int(list[j - 1], prev) : prev);
                         if (prevCcc == 1 || prevCcc <= ccc) break;
 
-                        var jIndex = startIndex + j;
                         if (isSurrogatePair)
                         {
                             if (isPrevSurrogatePair)
                             {
                                 // 両方サロゲートペア
-                                list[jIndex + 1] = list[jIndex - 1];
-                                list[jIndex + 2] = list[jIndex];
-                                list[jIndex - 1] = hi;
-                                list[jIndex] = lo;
+                                list[j + 1] = list[j - 1];
+                                list[j + 2] = list[j];
+                                list[j - 1] = hi;
+                                list[j] = lo;
                             }
                             else
                             {
                                 // iはサロゲートペア、jはサロゲートペアではない
-                                list[jIndex + 2] = list[jIndex];
-                                list[jIndex] = hi;
-                                list[jIndex + 1] = lo;
+                                list[j + 2] = list[j];
+                                list[j] = hi;
+                                list[j + 1] = lo;
                             }
                         }
                         else
@@ -247,15 +244,15 @@ namespace ToriatamaText.UnicodeNormalization
                             if (isPrevSurrogatePair)
                             {
                                 // iはサロゲートペアではない、jはサロゲートペア
-                                list[jIndex + 1] = list[jIndex];
-                                list[jIndex] = list[jIndex - 1];
-                                list[jIndex - 1] = hi;
+                                list[j + 1] = list[j];
+                                list[j] = list[j - 1];
+                                list[j - 1] = hi;
                             }
                             else
                             {
                                 // どっちもサロゲートペアではない
-                                list[jIndex + 1] = list[jIndex];
-                                list[jIndex] = hi;
+                                list[j + 1] = list[j];
+                                list[j] = hi;
                             }
                         }
 
