@@ -184,11 +184,11 @@ namespace ToriatamaText.UnicodeNormalization
             }
 
             var insertIndex = result.Count;
-            var ccc = GetCanonicalCombiningClass(code);
             var isSurrogatePair = code > char.MaxValue;
 
             if (insertIndex > 0)
             {
+                var ccc = GetCanonicalCombiningClass(code);
                 if (ccc != 0)
                 {
                     var j = insertIndex - 1;
