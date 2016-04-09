@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using ToriatamaText.Collections;
 
@@ -36,7 +37,6 @@ namespace ToriatamaText.UnicodeNormalization
                 var countBeforeDecompose = result.Count;
 
                 DecomposeInRange(s, i, nextQcYes, ref result);
-                ReorderInRange(ref result, countBeforeDecompose);
                 ComposeInRange(ref result, countBeforeDecompose);
 
                 if (nextQcYes == s.Length)
@@ -167,11 +167,7 @@ namespace ToriatamaText.UnicodeNormalization
 
             // Unicode 8.0 用ハードコーディング
             // 10000 以上離れているところとハングルをショートカット
-            if (code < 0x00C0 || (code > 0x1026 && (code < 0x1B06 || (code > 0x30FE && (code < 0xF900)))))
-            {
-                result.Add((char)code);
-            }
-            else
+            if (!(code < 0x00C0 || (code > 0x1026 && (code < 0x1B06 || (code > 0x30FE && (code < 0xF900))))))
             {
                 var i = LookupDecompositionTable(code);
                 if (i != -1)
@@ -182,85 +178,71 @@ namespace ToriatamaText.UnicodeNormalization
                     var second = DecompositionTableEntries[i + 1];
                     if (second != 0)
                         DecompCore(second, ref result);
+
+                    return;
                 }
-                else
+            }
+
+            var insertIndex = result.Count;
+            var ccc = GetCanonicalCombiningClass(code);
+            var isSurrogatePair = code > char.MaxValue;
+
+            if (insertIndex > 0)
+            {
+                if (ccc != 0)
                 {
-                    if (code <= char.MaxValue)
+                    var j = insertIndex - 1;
+                    while (true)
                     {
-                        result.Add((char)code);
+                        uint prev = result[j];
+                        var isPrevSurrogatePair = IsLowSurrogate(prev) && j > 0 && IsHighSurrogate(result[j - 1]);
+                        var prevCcc = GetCanonicalCombiningClass(isPrevSurrogatePair ? ToUtf16Int(result[--j], prev) : prev);
+                        if (prevCcc <= ccc) break;
+                        insertIndex = j;
+                        if (j == 0)
+                        {
+                            insertIndex = 0;
+                            break;
+                        }
+                        j--;
+                    }
+                }
+
+                if (result.InnerArray.Length < result.Count + 2)
+                {
+                    var newArray = new char[result.Count * 2];
+                    if (insertIndex < result.Count)
+                    {
+                        Array.Copy(result.InnerArray, newArray, insertIndex);
+                        Array.Copy(result.InnerArray, insertIndex, newArray, insertIndex + (isSurrogatePair ? 2 : 1), result.Count - insertIndex);
                     }
                     else
                     {
-                        result.EnsureCapacity(2);
-                        result.InnerArray[result.Count] = (char)(code >> 16);
-                        result.InnerArray[result.Count + 1] = (char)code;
-                        result.Count += 2;
+                        Array.Copy(result.InnerArray, newArray, result.Count);
                     }
+                    result.InnerArray = newArray;
+                }
+                else
+                {
+                    if (insertIndex < result.Count)
+                        Array.Copy(result.InnerArray, insertIndex, result.InnerArray, insertIndex + (isSurrogatePair ? 2 : 1), result.Count - insertIndex);
                 }
             }
-        }
-
-        private static void ReorderInRange(ref MiniList<char> list, int startIndex)
-        {
-            var i = startIndex;
-            while (i < list.Count)
+            else
             {
-                var hi = list[i];
-                var lo = '\0';
-                var isSurrogatePair = IsHighSurrogate(hi) && i + 1 < list.Count
-                    && char.IsLowSurrogate(lo = list[i + 1]);
-                var ccc = GetCanonicalCombiningClass(isSurrogatePair ? ToUtf16Int(hi, lo) : hi);
+                result.EnsureCapacity(2);
+            }
 
-                if (ccc != 0)
-                {
-                    var j = i - 1;
-                    while (j >= startIndex)
-                    {
-                        uint prev = list[j];
-                        var isPrevSurrogatePair = IsLowSurrogate(prev) && j > 0 && IsHighSurrogate(list[j - 1]);
-                        var prevCcc = GetCanonicalCombiningClass(isPrevSurrogatePair ? ToUtf16Int(list[j - 1], prev) : prev);
-                        if (prevCcc == 1 || prevCcc <= ccc) break;
-
-                        if (isSurrogatePair)
-                        {
-                            if (isPrevSurrogatePair)
-                            {
-                                // 両方サロゲートペア
-                                list[j + 1] = list[j - 1];
-                                list[j + 2] = list[j];
-                                list[j - 1] = hi;
-                                list[j] = lo;
-                            }
-                            else
-                            {
-                                // iはサロゲートペア、jはサロゲートペアではない
-                                list[j + 2] = list[j];
-                                list[j] = hi;
-                                list[j + 1] = lo;
-                            }
-                        }
-                        else
-                        {
-                            if (isPrevSurrogatePair)
-                            {
-                                // iはサロゲートペアではない、jはサロゲートペア
-                                list[j + 1] = list[j];
-                                list[j] = list[j - 1];
-                                list[j - 1] = hi;
-                            }
-                            else
-                            {
-                                // どっちもサロゲートペアではない
-                                list[j + 1] = list[j];
-                                list[j] = hi;
-                            }
-                        }
-
-                        j -= isPrevSurrogatePair ? 2 : 1;
-                    }
-                }
-
-                i += isSurrogatePair ? 2 : 1;
+            if (isSurrogatePair)
+            {
+                result.InnerArray[insertIndex] = (char)(code >> 16);
+                result.InnerArray[insertIndex + 1] = (char)code;
+                result.Count += 2;
+            }
+            else
+            {
+                result.InnerArray[insertIndex] = (char)code;
+                result.Count++;
             }
         }
 
